@@ -1,7 +1,7 @@
 import sugar
 import types
 import observables
-
+import utils
 
 proc observableCollection*[T](values: seq[T] = @[]): CollectionSubject[T] =
   let subject = CollectionSubject[T](
@@ -76,16 +76,14 @@ proc len*[T](self: CollectionSubject[T]): Observable[int] =
 # proc len*[T](self: ObservableCollection[T]): Observable[int] =
 #   self.source.len()
 
-proc map*[T,R](self: ObservableCollection[T], mapper: (T) -> R): ObservableCollection[R] =
-  ObservableCollection[T](
-    onSubscribe: proc(subscriber: CollectionSubscriber[T]): Subscription =
+proc map*[T,R](self: ObservableCollection[T], mapper: T -> R): ObservableCollection[R] =
+  ObservableCollection[R](
+    onSubscribe: proc(subscriber: CollectionSubscriber[R]): Subscription =
       let subscription = self.subscribe(
         proc(newVal: T): void =
-          let mapped = mapper(newVal)
-          subscriber.onAdded(mapped),
+          subscriber.onAdded(mapper(newVal)),
         proc(removedVal: T): void =
-          let mapped = mapper(removedVal)
-          subscriber.onRemoved(mapped),
+          subscriber.onRemoved(mapper(removedVal)),
       )
       Subscription(
         dispose: subscription.dispose
