@@ -34,6 +34,8 @@ type
   CollectionSubscriber*[T] = ref object
     onAdded*: T -> void
     onRemoved*: T -> void
+    ## The values present in the collection when subscribing
+    initialItems*: Option[seq[T] -> void]
 
   ObservableCollection*[T] = ref object
     onSubscribe*: CollectionSubscriber[T] -> Subscription

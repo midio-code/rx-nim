@@ -1,4 +1,4 @@
-import sugar
+import sugar, options, sequtils
 import types
 import observables
 import utils
@@ -10,6 +10,8 @@ proc observableCollection*[T](values: seq[T] = @[]): CollectionSubject[T] =
   subject.source = ObservableCollection[T](
     onSubscribe: proc(subscriber: CollectionSubscriber[T]): Subscription =
       subject.subscribers.add(subscriber)
+      if subscriber.initialItems.isSome:
+        subscriber.initialItems.get()(subject.values)
       Subscription(
         dispose: proc(): void =
           subject.subscribers.remove(subscriber)
@@ -33,8 +35,18 @@ proc subscribe*[T](self: ObservableCollection[T], onAdded: T -> void, onRemoved:
     onRemoved: onRemoved
   ))
 
+proc subscribe*[T](self: ObservableCollection[T], onAdded: T -> void, onRemoved: T -> void, initialItems: seq[T] -> void): Subscription =
+  self.onSubscribe(CollectionSubscriber[T](
+    onAdded: onAdded,
+    onRemoved: onRemoved,
+    initialItems: some(initialItems)
+  ))
+
 proc subscribe*[T](self: CollectionSubject[T], onAdded: T -> void, onRemoved: T -> void): Subscription =
   self.source.subscribe(onAdded, onRemoved)
+
+proc subscribe*[T](self: CollectionSubject[T], onAdded: T -> void, onRemoved: T -> void, initialItems: seq[T] -> void): Subscription =
+  self.source.subscribe(onAdded, onRemoved, initialItems)
 
 proc contains*[T](self: CollectionSubject[T], item: T): Observable[bool] =
   createObservable(
@@ -84,6 +96,9 @@ proc map*[T,R](self: ObservableCollection[T], mapper: T -> R): ObservableCollect
           subscriber.onAdded(mapper(newVal)),
         proc(removedVal: T): void =
           subscriber.onRemoved(mapper(removedVal)),
+        proc(initialItems: seq[T]): void =
+          if subscriber.initialItems.isSome:
+            subscriber.initialItems.get()(initialItems.map(mapper))
       )
       Subscription(
         dispose: subscription.dispose
@@ -100,8 +115,10 @@ proc toObservable*[T](self: CollectionSubject[T]): Observable[seq[T]] =
       let subscription = self.subscribe(
         proc(added: T): void =
           subscriber.onNext(self.values),
-        proc(removeD: T): void =
-          subscriber.onNext(self.values)
+        proc(removed: T): void =
+          subscriber.onNext(self.values),
+        proc(initialItems: seq[T]): void =
+          subscriber.onNext(initialItems)
       )
       Subscription(
         dispose: subscription.dispose
@@ -118,6 +135,9 @@ proc toObservable*[T](self: ObservableCollection[T]): Observable[seq[T]] =
           subscriber.onNext(values),
         proc(removed: T): void =
           values.delete(values.find(removed))
+          subscriber.onNext(values),
+        proc(initialItems: seq[T]): void =
+          values = initialItems
           subscriber.onNext(values)
       )
       Subscription(
@@ -136,7 +156,11 @@ proc observableCollection*[T](source: ObservableCollection[T]): CollectionSubjec
         proc(added: T): void =
           subject.add(added),
         proc(removed: T): void =
-          subject.remove(removed)
+          subject.remove(removed),
+        proc(initialItems: seq[T]): void =
+          subject.values = initialItems
+          if subscriber.initialItems.isSome:
+            subscriber.initialItems.get()(subject.values)
       )
 
       Subscription(
@@ -154,6 +178,9 @@ proc combineLatest*[A,B,R](a: ObservableCollection[A], b: ObservableCollection[B
 
       var lastRemovedA: A
       var lastRemovedB: B
+
+      var initialItemsA: seq[A]
+      var initialItemsB: seq[B]
       let subscriptionA = a.subscribe(
         proc(newA: A): void =
           lastAddedA = newA
@@ -163,6 +190,10 @@ proc combineLatest*[A,B,R](a: ObservableCollection[A], b: ObservableCollection[B
           lastRemovedA = removedA
           if not isNil(lastRemovedB):
             subscriber.onRemoved(mapper(removedA, lastRemovedB)),
+        proc(initialItems: seq[A]): void =
+          initialItemsA = initialItems
+
+
       )
       let subscriptionB = b.subscribe(
         proc(newB: B): void =
@@ -173,6 +204,11 @@ proc combineLatest*[A,B,R](a: ObservableCollection[A], b: ObservableCollection[B
           lastRemovedB = removedB
           if not isNil(lastRemovedA):
             subscriber.onRemoved(mapper(lastRemovedA, removedB)),
+        proc(initialItems: seq[B]): void =
+          initialItemsB = initialItems
+          if not isNil initialItemsA:
+            if subscriber.initialItems.isSome:
+              subscriber.initialItems.get()(initialItemsA.zip(initialItemsB).map((ab: (A,B)) => mapper(ab.a, ab.b)))
       )
 
       Subscription(
