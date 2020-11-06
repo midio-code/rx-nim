@@ -108,6 +108,23 @@ proc toObservable*[T](self: CollectionSubject[T]): Observable[seq[T]] =
       )
   )
 
+proc toObservable*[T](self: ObservableCollection[T]): Observable[seq[T]] =
+  var values: seq[T] = @[]
+  createObservable(
+    proc(subscriber: Subscriber[seq[T]]): Subscription =
+      let subscription = self.subscribe(
+        proc(added: T): void =
+          values.add(added)
+          subscriber.onNext(values),
+        proc(removed: T): void =
+          values.delete(values.find(removed))
+          subscriber.onNext(values)
+      )
+      Subscription(
+        dispose: subscription.dispose
+      )
+  )
+
 # TODO: Find a better name for this
 proc observableCollection*[T](source: ObservableCollection[T]): CollectionSubject[T] =
   ## Wraps an ObservableCollection[T] in a CollectionSubject[T] so that its items are
