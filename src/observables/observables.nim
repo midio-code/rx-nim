@@ -28,7 +28,7 @@ proc notifySubscribers[T](self: Subject[T]): void =
   for subscriber in self.subscribers:
     subscriber.onNext(self.value)
 
-proc behaviorSubject*[T](value: T): Subject[T] =
+proc behaviorSubject*[T](value: T = default(T)): Subject[T] =
   ## Creates a ``behaviorSubject`` with the initial value of ``value``. Behavior subjects notifies
   ## as soon as a subscription is created.
   let ret = Subject[T](
@@ -90,16 +90,13 @@ proc behaviorSubject*[T](source: Observable[T]): Subject[T] =
   ## Creates a ``behaviorSubject`` from another ``observable``. This is useful
   ## when one has an observable which one would like to use as a value, exposing the latest
   ## value through the subjects ``.value`` field.
-  let ret = Subject[T](
-    source: source,
-    didComplete: false
-  )
+  let ret = behaviorSubject[T]()
   # NOTE: We do not care about this subscription,
   # as it is valid as long as this subject exists.
   # TODO: We might need to handle the case when the object is disposed though.
-  discard ret.source.subscribe(
+  discard source.subscribe(
     proc(newVal: T): void =
-      ret.value = newVal
+      ret.next(newVal)
   )
   ret
 
