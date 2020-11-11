@@ -108,6 +108,29 @@ proc map*[T,R](self: ObservableCollection[T], mapper: T -> R): ObservableCollect
 template map*[T,R](self: CollectionSubject[T], mapper: (T) -> R): ObservableCollection[R] =
   self.source.map(mapper)
 
+
+proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): ObservableCollection[T] =
+  ObservableCollection[T](
+    onSubscribe: proc(subscriber: CollectionSubscriber[T]): Subscription =
+      let subscription = self.subscribe(
+        proc(newVal: T): void =
+          if predicate(newVal):
+            subscriber.onAdded(newVal),
+        proc(removedVal: T): void =
+          if predicate(removedVal):
+            subscriber.onRemoved(removedVal),
+        proc(initialItems: seq[T]): void =
+          if subscriber.initialItems.isSome:
+            subscriber.initialItems.get()(initialItems.filter(predicate))
+      )
+      Subscription(
+        dispose: subscription.dispose
+      )
+  )
+
+template filter*[T](self: CollectionSubject[T], predicate: T -> bool): ObservableCollection[T] =
+  self.source.filter(predicate)
+
 proc toObservable*[T](self: CollectionSubject[T]): Observable[seq[T]] =
   createObservable(
     proc(subscriber: Subscriber[seq[T]]): Subscription =
