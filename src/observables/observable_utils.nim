@@ -32,3 +32,33 @@ proc unwrap*[T](self: Observable[seq[Option[T]]]): Observable[seq[T]] =
           o.get()
       )
   )
+
+proc unwrap*[T](self: ObservableCollection[Option[T]]): ObservableCollection[T] =
+  self.filter(
+    proc(x: Option[T]): bool =
+      x.isSome()
+  ).map(
+    proc(x: Option[T]): T =
+      x.get()
+  )
+
+
+proc switch*[A](observables: Observable[ObservableCollection[A]]): ObservableCollection[A] =
+  ## Subscribes to each observable as they arrive after first unsubscribing from the second,
+  ## emitting their values as they arrive.
+  ObservableCollection[A](
+    onSubscribe: proc(subscriber: CollectionSubscriber[A]): Subscription =
+      var currentSubscription: Subscription
+      let outerSub = observables.subscribe(
+        proc(innerObs: ObservableCollection[A]): void =
+          if not isNil(currentSubscription):
+            currentSubscription.dispose()
+          currentSubscription = innerObs.onSubscribe(subscriber)
+      )
+      Subscription(
+        dispose: proc(): void =
+          if not isNil(currentSubscription):
+            currentSubscription.dispose()
+          outerSub.dispose()
+      )
+  )
