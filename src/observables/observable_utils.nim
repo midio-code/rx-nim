@@ -62,3 +62,18 @@ proc switch*[A](observables: Observable[ObservableCollection[A]]): ObservableCol
           outerSub.dispose()
       )
   )
+
+proc `<-`*[T](subj: Subject[T], other: T): void =
+  subj.next(other)
+
+proc `+=`*[T](subj: Subject[T], other: T): void =
+  subj.next(subj.value + other)
+
+proc `-=`*[T](subj: Subject[T], other: T): void =
+  subj.next(subj.value - other)
+
+proc `*=`*[T](subj: Subject[T], other: T): void =
+  subj.next(subj.value * other)
+
+proc `div=`*[T](subj: Subject[T], other: T): void =
+  subj.next(subj.value div other)
