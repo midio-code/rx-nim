@@ -232,6 +232,58 @@ proc combineLatest*[A,B,C,R](a: Observable[A], b: Observable[B], c: Observable[C
       )
   )
 
+
+# TODO: Optimize
+proc combineLatest*[A,B,C,D,R](
+  a: Observable[A],
+  b: Observable[B],
+  c: Observable[C],
+  d: Observable[D],
+  mapper: (A,B,C,D) -> R
+): Observable[R] =
+    let comb1 = a.combineLatest(
+      b,
+      proc(aVal: A, bVal: B): (A,B) =
+        (aVal, bVal)
+    )
+    let comb2 = c.combineLatest(
+      d,
+      proc(cVal: C, dVal: D): (C,D) =
+        (cVal, dVal)
+    )
+    comb1.combineLatest(
+      comb2,
+      proc(left: (A,B), right: (C,D)): R =
+        mapper(left[0], left[1], right[0], right[1])
+    )
+
+# TODO: Optimize
+proc combineLatest*[A,B,C,D,E,R](
+  a: Observable[A],
+  b: Observable[B],
+  c: Observable[C],
+  d: Observable[D],
+  e: Observable[E],
+  mapper: (A,B,C,D,E) -> R
+): Observable[R] =
+    let comb1 = a.combineLatest(
+      b,
+      proc(aVal: A, bVal: B): (A,B) =
+        (aVal, bVal)
+    )
+    let comb2 = c.combineLatest(
+      d,
+      proc(cVal: C, dVal: D): (C,D) =
+        (cVal, dVal)
+    )
+    comb1.combineLatest(
+      comb2,
+      e,
+      proc(left: (A,B), right: (C,D), e: E): R =
+        mapper(left[0], left[1], right[0], right[1], e)
+    )
+
+
 proc merge*[A](a: Observable[A], b: Observable[A]): Observable[A] =
   ## Combines two observables, pushing both their values through a mapper function that maps to a new Observable type. The new observable triggers when **either** A or B changes.
   Observable[A](

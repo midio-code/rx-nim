@@ -55,7 +55,9 @@ proc contains*[T](self: CollectionSubject[T], item: T): Observable[bool] =
         proc(val: T): void =
           subscriber.onNext(self.values.contains(item)),
         proc(val: T): void =
-          subscriber.onNext(self.values.contains(item))
+          subscriber.onNext(self.values.contains(item)),
+        proc(initial: seq[T]): void =
+          subscriber.onNext(self.values.contains(item)),
       )
       subscriber.onNext(self.values.contains(item))
       # TODO: Handle subscriptions for observable collection

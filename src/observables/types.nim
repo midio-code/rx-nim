@@ -1,4 +1,4 @@
-import options, sugar
+import options, sugar, tables
 
 type
   Error* = string
@@ -44,3 +44,16 @@ type
     source*: ObservableCollection[T]
     values*: seq[T]
     subscribers*: seq[CollectionSubscriber[T]]
+
+
+  TableSubscriber*[TKey, TValue] = ref object
+    onPut*: (TKey, TValue) -> void
+    onDeleted*: (TKey, TValue) -> void
+
+  ObservableTable*[TKey, TValue] = ref object
+    onSubscrbe*: (TableSubscriber[TKey, TValue]) -> Subscription
+
+  TableSubject*[TKey, TValue] = ref object
+    source*: ObservableTable
+    values*: Table[TKey, TValue]
+    subscribers*: seq[TableSubscriber[TKey, TValue]]
