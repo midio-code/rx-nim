@@ -364,8 +364,43 @@ suite "Observable table":
     )
 
     check(c == false)
-    t.put("test", 555)
+    t.set("test", 555)
     check(c == true)
     check(r == false)
     let deleted = t.delete("foo")
     check(r == true)
+
+  test "Observable[seq[T]] to TableSubject[T, Key]":
+    let original = behaviorSubject(@["foo", "hello"])
+    let t = original.toObservableTable(
+      proc(key: string): int =
+        key.len
+    )
+    var added: seq[(string, int)] = @[]
+    var deleted: seq[(string, int)] = @[]
+    discard t.subscribe(
+      proc(key: string, val: int): void =
+        added.add((key, val)),
+      proc(key: string, val: int): void =
+        deleted.add((key, val))
+    )
+
+    check(added.len == 2)
+    check(added[0][0] == "foo")
+    check(added[0][1] == 3)
+    check(added[1][0] == "hello")
+    check(added[1][1] == 5)
+
+    original.next(@["foo", "fourth", "a"])
+    check(added.len == 4)
+    check(added[0][0] == "foo")
+    check(added[0][1] == 3)
+    check(added[1][0] == "hello")
+    check(added[1][1] == 5)
+    check(added[2][0] == "fourth")
+    check(added[2][1] == 6)
+    check(added[3][0] == "a")
+    check(added[3][1] == 1)
+
+    check(deleted[0][0] == "hello")
+    check(deleted[0][1] == 5)

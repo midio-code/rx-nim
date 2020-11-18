@@ -47,7 +47,7 @@ type
 
 
   TableSubscriber*[TKey, TValue] = ref object
-    onPut*: (TKey, TValue) -> void
+    onSet*: (TKey, TValue) -> void
     onDeleted*: (TKey, TValue) -> void
 
   ObservableTable*[TKey, TValue] = ref object
