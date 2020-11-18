@@ -55,5 +55,5 @@ type
 
   TableSubject*[TKey, TValue] = ref object
     source*: ObservableTable[TKey, TValue]
-    values*: TableRef[TKey, TValue]
+    items*: TableRef[TKey, TValue]
     subscribers*: seq[TableSubscriber[TKey, TValue]]

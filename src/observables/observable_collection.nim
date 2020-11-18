@@ -242,3 +242,10 @@ proc combineLatest*[A,B,R](a: ObservableCollection[A], b: ObservableCollection[B
           subscriptionB.dispose()
       )
   )
+
+proc log*[T](self: ObservableCollection[T], prefix: string = ""): ObservableCollection[T] =
+  self.map(
+    proc(x: T): T =
+      echo(prefix, $x)
+      x
+  )
