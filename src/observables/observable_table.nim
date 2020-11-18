@@ -42,6 +42,19 @@ proc subscribe*[TKey, TValue](self: ObservableTable[TKey, TValue], onSet: (TKey,
     )
   )
 
+proc get*[TKey, TValue](self: ObservableTable[TKey, TValue], key: TKey): Observable[Option[TValue]] =
+  Observable[Option[TValue]](
+    onSubscribe: proc(subscriber: Subscriber[Option[TValue]]): Subscription =
+      self.subscribe(
+        proc(k: TKey, val: TValue): void =
+          if key == k:
+            subscriber.onNext(some(val)),
+        proc(k: TKey, val: TValue): void =
+          if key == k:
+            subscriber.onNext(none[TValue]())
+      )
+  )
+
 converter toObservableTable*[TKey, TValue](self: TableSubject[TKey, TValue]): ObservableTable[TKey, TValue] =
   self.source
 

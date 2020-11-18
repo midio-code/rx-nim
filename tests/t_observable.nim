@@ -1,4 +1,5 @@
 import sugar
+import options
 import tables
 import unittest
 import src/rx_nim
@@ -404,3 +405,17 @@ suite "Observable table":
 
     check(deleted[0][0] == "hello")
     check(deleted[0][1] == 5)
+
+  test "ObservableTable.get":
+    let t = observableTable({"foo": 123, "bar": 321 }.newTable())
+    let val = behaviorSubject(t.get("foo"))
+
+    check(val.value.isSome())
+    check(val.value.get() == 123)
+
+    discard t.delete("foo")
+    check(val.value.isNone)
+
+    t.set("foo", 222)
+    check(val.value.isSome)
+    check(val.value.get == 222)
