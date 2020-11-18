@@ -1,4 +1,5 @@
 import sugar
+import tables
 import unittest
 import src/rx_nim
 
@@ -347,3 +348,24 @@ suite "More observable tests":
     s1.next(1)
     check(value.value == 4)
     check(total == 19)
+
+suite "Observable table":
+  test "Basic table test":
+    let t = observableTable({"foo": 123, "bar": 321 }.newTable())
+    var c = false
+    var r = false
+    discard t.subscribe(
+      proc(key: string, val: int): void =
+        if key == "test" and val == 555:
+          c = true,
+      proc(key: string, val: int): void =
+        if key == "foo" and val == 123:
+          r = true
+    )
+
+    check(c == false)
+    t.put("test", 555)
+    check(c == true)
+    check(r == false)
+    let deleted = t.delete("foo")
+    check(r == true)

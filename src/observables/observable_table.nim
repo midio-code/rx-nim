@@ -1,32 +1,45 @@
-import tables, options, sequtils
+import tables, options, sequtils, sugar
 import types
 import utils
 
-proc observableTable*[TKey, TValue](initialItems: Table[TKey, TValue]): TableSubject[TKey, TValue] =
-  let subject = TableSubject(
+proc observableTable*[TKey, TValue](initialItems: TableRef[TKey, TValue]): TableSubject[TKey, TValue] =
+  let subject = TableSubject[TKey, TValue](
     values: initialItems,
   )
   subject.source = ObservableTable[TKey, TValue](
     onSubscribe: proc(subscriber: TableSubscriber[TKey, TValue]): Subscription =
       subject.subscribers.add(subscriber)
-      for k, v in subject.values.items:
+      for k, v in subject.values.pairs:
         subscriber.onPut(k, v)
       Subscription(
         dispose: proc(): void =
           subject.subscribers.remove(subscriber)
       )
   )
+  subject
 
 proc put*[TKey, TValue](self: TableSubject[TKey, TValue], key: TKey, value: TValue): void =
-  self.values.put(key, value)
+  self.values[key] = value
   for subscriber in self.subscribers:
     subscriber.onPut(key, value)
 
 proc delete*[TKey, TValue](self: TableSubject[TKey, TValue], key: TKey): Option[TValue] =
-  var val: TValue
-  if self.values.del(key, val):
+  if self.values.hasKey(key):
+    let val = self.values[key]
+    result = some[TValue](val)
+    self.values.del(key)
     for subscriber in self.subscribers:
       subscriber.onDeleted(key, val)
-    some(val)
   else:
-    none[TValue]()
+    result = none[TValue]()
+
+proc subscribe*[TKey, TValue](self: ObservableTable[TKey, TValue], onPut: (TKey, TValue) -> void, onDeleted: (TKey, TValue) -> void): Subscription =
+  self.onSubscribe(
+    TableSubscriber[TKey, TValue](
+      onPut: onPut,
+      onDeleted: onDeleted
+    )
+  )
+
+converter toObservableTable*[TKey, TValue](self: TableSubject[TKey, TValue]): ObservableTable[TKey, TValue] =
+  self.source

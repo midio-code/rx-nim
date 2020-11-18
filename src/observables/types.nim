@@ -51,9 +51,9 @@ type
     onDeleted*: (TKey, TValue) -> void
 
   ObservableTable*[TKey, TValue] = ref object
-    onSubscrbe*: (TableSubscriber[TKey, TValue]) -> Subscription
+    onSubscribe*: (TableSubscriber[TKey, TValue]) -> Subscription
 
   TableSubject*[TKey, TValue] = ref object
-    source*: ObservableTable
-    values*: Table[TKey, TValue]
+    source*: ObservableTable[TKey, TValue]
+    values*: TableRef[TKey, TValue]
     subscribers*: seq[TableSubscriber[TKey, TValue]]
