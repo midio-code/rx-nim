@@ -1,4 +1,4 @@
-import options, sugar, tables
+import options, sugar, tables, hashes
 
 type
   Error* = string
@@ -57,3 +57,10 @@ type
     source*: ObservableTable[TKey, TValue]
     items*: TableRef[TKey, TValue]
     subscribers*: seq[TableSubscriber[TKey, TValue]]
+
+
+proc hash*[T](self: Subject[T]): Hash =
+  self.value.hash()
+
+proc hash*[T](self: CollectionSubject[T]): Hash =
+  self.values.hash()
