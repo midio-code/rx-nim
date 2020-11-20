@@ -64,3 +64,9 @@ proc hash*[T](self: Subject[T]): Hash =
 
 proc hash*[T](self: CollectionSubject[T]): Hash =
   self.values.hash()
+
+proc hash*[K,V](self: TableSubject[K,V]): Hash =
+  var h: Hash = 0
+  for k, v in self.items.pairs():
+    h = h !& k.hash !& v.hash
+  result = !$h
