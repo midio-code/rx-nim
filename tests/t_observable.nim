@@ -121,7 +121,7 @@ suite "observable tests":
 
 suite "observable collection tests":
   test "Added and removed notifications":
-    let collection = observableCollection[int](@[])
+    let collection: CollectionSubject[int] = observableCollection[int]()
     var total = 0
     discard collection.subscribe(
       proc(item: int): void =
@@ -139,7 +139,8 @@ suite "observable collection tests":
     check(total == 5)
 
   test "Mapping observable collection":
-    let collection = observableCollection[int](@[])
+    let start: seq[int] = @[]
+    let collection: CollectionSubject[int] = observableCollection(start)
     var total = 0
     discard collection.subscribe(
       proc(item: int): void =
@@ -355,7 +356,7 @@ suite "Observable table":
     let t = observableTable({"foo": 123, "bar": 321 }.newTable())
     var c = false
     var r = false
-    discard t.subscribe(
+    discard t.source.subscribe(
       proc(key: string, val: int): void =
         if key == "test" and val == 555:
           c = true,
@@ -419,3 +420,16 @@ suite "Observable table":
     t.set("foo", 222)
     check(val.value.isSome)
     check(val.value.get == 222)
+
+  test "ObservableTable.filter":
+    let t = observableTable({ "one": 1, "two": 2, "three": 3, "four": 4, "five": 5 }.newTable())
+    let filtered = t.filter(
+      proc(key: string, val: int): bool =
+        val < 3
+    )
+
+    check(behaviorSubject(filtered.get("one")).value.isSome())
+    check(behaviorSubject(filtered.get("two")).value.isSome())
+    check(behaviorSubject(filtered.get("three")).value.isNone())
+    check(behaviorSubject(filtered.get("four")).value.isNone())
+    check(behaviorSubject(filtered.get("five")).value.isNone())

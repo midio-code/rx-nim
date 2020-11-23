@@ -29,7 +29,7 @@ proc remove*[T](self: CollectionSubject[T], item: T): void =
   for subscriber in self.subscribers:
     subscriber.onRemoved(item)
 
-proc observableCollection*[T](values: seq[Observable[T]]): CollectionSubject[T] =
+proc asObservableCollection*[T](values: seq[Observable[T]]): CollectionSubject[T] =
   let res = observableCollection[T]()
   for val in values:
     # TODO: Handle this subscription somehow

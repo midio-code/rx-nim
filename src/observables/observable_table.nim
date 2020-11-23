@@ -26,10 +26,10 @@ proc set*[TKey, TValue](self: TableSubject[TKey, TValue], key: TKey, value: TVal
     subscriber.onSet(key, value)
 
 proc delete*[TKey, TValue](self: TableSubject[TKey, TValue], key: TKey): Option[TValue] =
-  if self.values.hasKey(key):
-    let val = self.values[key]
+  if self.items.hasKey(key):
+    let val = self.items[key]
     result = some[TValue](val)
-    self.values.del(key)
+    self.items.del(key)
     for subscriber in self.subscribers:
       subscriber.onDeleted(key, val)
   else:
