@@ -193,3 +193,19 @@ proc map*[K,V,KR,VR](self: ObservableTable[K,V], mapper: (K,V) -> (KR,VR)): Obse
 
 template map*[K,V,KR,VR](self: TableSubject[K,V], mapper: (K,V) -> (KR,VR)): ObservableTable[KR,VR] =
   self.source.map(mapper)
+
+proc filter*[K,V](self: ObservableTable[K,V], predicate: (K,V) -> bool): ObservableTable[K,V] =
+  ObservableTable[K, V](
+    onSubscribe: proc(subscriber: TableSubscriber[K, V]): Subscription =
+      self.subscribe(
+        proc(key: K, val: V): void =
+          if predicate(key, val):
+            subscriber.onSet(key, val),
+        proc(key: K, val: V): void =
+          if predicate(key, val):
+            subscriber.onDeleted(key, val)
+      )
+  )
+
+template filter*[K,V](self: TableSubject[K,V], predicate: (K,V) -> bool): ObservableTable[K,V] =
+  self.source.filter(predicate)
