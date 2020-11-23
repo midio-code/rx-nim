@@ -1,4 +1,4 @@
-import tables, options, sequtils, sugar
+import tables, options, sequtils, sugar, strformat
 import types
 import utils
 import observables

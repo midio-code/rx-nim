@@ -31,10 +31,10 @@ proc remove*[T](self: CollectionSubject[T], item: T): void =
 
 proc asObservableCollection*[T](values: seq[Observable[T]]): CollectionSubject[T] =
   let res = observableCollection[T]()
-  for val in values:
-    # TODO: Handle this subscription somehow
-    closureScope:
+  values.apply(
+    proc(val: Observable[T]): void =
       var prevVal: T = nil
+      # TODO: Handle this subscription somehow
       discard val.subscribe(
         proc(newVal: T): void =
           if not isNil(prevVal):
@@ -42,6 +42,7 @@ proc asObservableCollection*[T](values: seq[Observable[T]]): CollectionSubject[T
           prevVal = newVal
           res.add(newVal)
       )
+  )
   res
 
 proc subscribe*[T](self: ObservableCollection[T], onAdded: T -> void, onRemoved: T -> void): Subscription =
