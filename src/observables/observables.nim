@@ -25,8 +25,14 @@ proc subscribe*[T](self: Subject[T], onNext: (T) -> void): Subscription =
   self.source.subscribe(onNext)
 
 proc notifySubscribers[T](self: Subject[T]): void =
+  var disposedSubscribers: seq[Subscriber[T]] = @[]
   for subscriber in self.subscribers:
-    subscriber.onNext(self.value)
+    if subscriber.disposed:
+      disposedSubscribers.add(subscriber)
+    else:
+      subscriber.onNext(self.value)
+  for subscriber in disposedSubscribers:
+    self.subscribers.remove(subscriber)
 
 proc behaviorSubject*[T](value: T = default(T)): Subject[T] =
   ## Creates a ``behaviorSubject`` with the initial value of ``value``. Behavior subjects notifies
@@ -41,7 +47,7 @@ proc behaviorSubject*[T](value: T = default(T)): Subject[T] =
       subscriber.onNext(ret.value)
       Subscription(
         dispose: proc(): void =
-          ret.subscribers.remove(subscriber)
+          subscriber.disposed = true
       )
   )
   ret
@@ -369,4 +375,38 @@ proc loggingSubscription*[A](observable: Observable[A], prefix: string = "Observ
   observable.subscribe(
     proc(x: A): void =
       echo prefix, $x
+  )
+
+proc take*[T](self: Observable[T], num: int): Observable[T] =
+  var counter = 0
+  Observable[T](
+    onSubscribe:
+      proc(subscriber: Subscriber[T]): Subscription =
+        var alreadyCompleted = false
+        var subscription: Subscription
+        subscription = self.subscribe(
+          proc(newVal: T): void =
+            subscriber.onNext(newVal)
+            counter += 1
+            echo "Subscriber: ", isNil(subscription)
+            if counter >= num and subscriber.onCompleted.isSome:
+              echo "Had a completed"
+              subscriber.onCompleted.get()()
+              if isNil subscription:
+                # NOTE: Is subscription is nil here, it means that the source
+                # observable was a behaviorSubject and already had a value,
+                # meaning it fired right away. The subscription isn't available at this point,
+                # meaning that we will have to dispose it from the outside, which we enable by
+                # settin the following flag.
+                alreadyCompleted = true
+              else:
+                subscription.dispose()
+
+        )
+        # NOTE: The observable might have completed even at this point,
+        # which means that we need to dispose the subscription already
+        if alreadyCompleted:
+          subscription.dispose()
+
+        subscription
   )

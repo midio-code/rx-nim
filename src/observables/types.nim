@@ -4,6 +4,7 @@ type
   Error* = string
 
   Subscriber*[T] =  ref object
+    disposed*: bool
     onNext*: (T) -> void
     onCompleted*: Option[() -> void]
     onError*: Option[(Error) -> void] ## \
@@ -57,16 +58,3 @@ type
     source*: ObservableTable[TKey, TValue]
     items*: TableRef[TKey, TValue]
     subscribers*: seq[TableSubscriber[TKey, TValue]]
-
-
-proc hash*[T](self: Subject[T]): Hash =
-  self.value.hash()
-
-proc hash*[T](self: CollectionSubject[T]): Hash =
-  self.values.hash()
-
-proc hash*[K,V](self: TableSubject[K,V]): Hash =
-  var h: Hash = 0
-  for k, v in self.items.pairs():
-    h = h !& k.hash !& v.hash
-  result = !$h

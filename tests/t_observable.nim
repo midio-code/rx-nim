@@ -118,6 +118,48 @@ suite "observable tests":
     check(sum == 1+2+3+4+5+6)
     check(completed == 1)
 
+  test "Observable.take":
+    let subj = behaviorSubject(1)
+    let one = subj.take(1)
+    var oneComplete = 0
+    var oneSum = 0
+    discard one.subscribe(
+      proc(val: int): void =
+        oneSum += val,
+      proc(): void =
+        oneComplete += 1
+    )
+
+    check(oneSum == 1)
+    check(oneComplete == 1)
+    subj.next(4)
+    check(oneSum == 1)
+    check(oneComplete == 1)
+
+    let two = subj.take(2)
+    var twoComplete = 0
+    var twoSum = 0
+    discard two.subscribe(
+      proc(val: int): void =
+        twoSum += val,
+      proc(): void =
+        twoComplete += 1
+    )
+    check(twoSum == 4)
+    check(oneComplete == 1)
+    check(twoComplete == 0)
+
+    subj.next(10)
+    check(twoSum == 14)
+    check(oneComplete == 1)
+    check(twoComplete == 1)
+
+    subj.next(20)
+    check(twoSum == 14)
+    check(oneComplete == 1)
+    check(twoComplete == 1)
+
+
 
 suite "observable collection tests":
   test "Added and removed notifications":
