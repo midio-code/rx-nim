@@ -189,7 +189,7 @@ proc toObservableTableKV*[T, TKey, TValue](self: ObservableCollection[T], mapper
   )
 
 proc toObservableTableKV*[T, TKey, TValue](self: CollectionSubject[T], mapper: T-> (TKey, TValue)): ObservableTable[TKey, TValue] =
-  toObservableTableKV(self, mapper)
+  toObservableTableKV(self.source, mapper)
 
 # NOTE: HACK
 proc cache*[TKey, TValue](self: ObservableTable[TKey, TValue]): ObservableTable[TKey, TValue] =
