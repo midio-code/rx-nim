@@ -43,6 +43,9 @@ proc subscribe*[TKey, TValue](self: ObservableTable[TKey, TValue], onSet: (TKey,
     )
   )
 
+template subscribe*[TKey, TValue](self: TableSubject[TKey, TValue], onSet: (TKey, TValue) -> void, onDeleted: (TKey, TValue) -> void): Subscription =
+  self.source.subscribe(onSet, onDeleted)
+
 proc get*[TKey, TValue](self: ObservableTable[TKey, TValue], key: TKey): Observable[Option[TValue]] =
   Observable[Option[TValue]](
     onSubscribe: proc(subscriber: Subscriber[Option[TValue]]): Subscription =
@@ -118,7 +121,7 @@ proc toObservableTable*[TKey, TValue](self: Observable[seq[TKey]], mapper: TKey 
       )
   )
 
-proc toObservableTable*[TKey, TValue](self: ObservableCollection[TKey], mapper: TKey -> TValue): ObservableTable[TKey, TValue] =
+proc mapToTable*[TKey, TValue](self: ObservableCollection[TKey], mapper: TKey -> TValue): ObservableTable[TKey, TValue] =
   let values = newTable[TKey, TValue]()
   ObservableTable[TKey, TValue](
     onSubscribe: proc(subscriber: TableSubscriber[TKey, TValue]): Subscription =
@@ -150,12 +153,51 @@ proc toObservableTable*[TKey, TValue](self: ObservableCollection[TKey], mapper: 
       )
   )
 
-proc toObservableTable*[TKey, TValue](self: CollectionSubject[TKey], mapper: TKey -> TValue): ObservableTable[TKey, TValue] =
+proc mapToTable*[TKey, TValue](self: CollectionSubject[TKey], mapper: TKey -> TValue): ObservableTable[TKey, TValue] =
+  self.source.mapToTable(mapper)
+
+
+proc toObservableTable*[T, TKey, TValue](self: ObservableCollection[T], mapper: T -> (TKey, TValue)): ObservableTable[TKey, TValue] =
+  ## NOTE: We require T to be hashable
+  let values = newTable[T, (TKey, TValue)]()
+  ObservableTable[TKey, TValue](
+    onSubscribe: proc(subscriber: TableSubscriber[TKey, TValue]): Subscription =
+      self.subscribe(
+        proc(item: T): void =
+          if not(values.hasKey(item)):
+            let (k,v) = mapper(item)
+            values[item] =  (k,v)
+            subscriber.onSet(k, v),
+        proc(removed: T): void =
+          let (k,v)= values[removed]
+          values.del(removed)
+          subscriber.onDeleted(k, v),
+        proc(initialItems: seq[T]): void =
+          var toDelete: seq[(T, (TKey, TValue))] = @[]
+          for item, kv in values.pairs:
+            if item notin initialItems:
+              toDelete.add((item, kv))
+          for i in toDelete:
+            let (item, kv) = i
+            values.del(item)
+            let (k, v) = kv
+            subscriber.onDeleted(k, v)
+          # TODO: Optimize
+          for item in initialItems:
+            let kv = mapper(item)
+            if not(values.hasKey(item)) or values[item] != kv:
+              values[item] =  kv
+              let (k,v) = kv
+              subscriber.onSet(k, v)
+      )
+  )
+
+proc toObservableTable*[T, TKey, TValue](self: CollectionSubject[T], mapper: T-> (TKey,TValue)): ObservableTable[TKey, TValue] =
   self.source.toObservableTable(mapper)
 
 
 # NOTE: HACK
-proc cache*[TKey, TValue](self: ObservableTable[TKey, TValue]): ObservableTable[TKey, TValue] =
+proc cache*[TKey, TValue](self: ObservableTable[TKey, TValue]): TableSubject[TKey, TValue] =
   let subject = observableTable[TKey, TValue]()
   discard self.subscribe(
     proc(key: TKey, val: TValue): void =
@@ -167,10 +209,7 @@ proc cache*[TKey, TValue](self: ObservableTable[TKey, TValue]): ObservableTable[
       for subscriber in subject.subscribers:
         subscriber.onDeleted(key, val)
   )
-  subject.source
-
-template cache*[TKey, TValue](self: TableSubject[TKey, TValue]): ObservableTable[TKey, TValue] =
-  self.source.cache()
+  subject
 
 
 proc map*[K,V,KR,VR](self: ObservableTable[K,V], mapper: (K,V) -> (KR,VR)): ObservableTable[KR,VR] =

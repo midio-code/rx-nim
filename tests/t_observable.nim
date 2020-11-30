@@ -475,3 +475,68 @@ suite "Observable table":
     check(behaviorSubject(filtered.get("three")).value.isNone())
     check(behaviorSubject(filtered.get("four")).value.isNone())
     check(behaviorSubject(filtered.get("five")).value.isNone())
+
+  test "ObservableTable.mapToTable":
+    let c = observableCollection(@[1,2,3])
+    let t = c.mapToTable(
+      proc(k: int): float =
+        float(k) + 0.5
+    )
+
+    var values = initTable[int, float]()
+    discard t.subscribe(
+      proc(k: int, v: float): void =
+        values[k] = v,
+      proc(k: int, v: float): void =
+        values.del(k)
+    )
+
+    check(values[1] == 1.5)
+    check(values[2] == 2.5)
+    check(values[3] == 3.5)
+
+    c.add(5)
+    check(values[5] == 5.5)
+    c.remove(3)
+    check(not (3 in values))
+
+  test "ObservableTable.mapToTable with caching":
+    let c = observableCollection(@[1,2,3])
+    let t = c.mapToTable(
+      proc(k: int): float =
+        float(k) + 0.5
+    ).cache.source
+
+    var values = initTable[int, float]()
+    discard t.subscribe(
+      proc(k: int, v: float): void =
+        values[k] = v,
+      proc(k: int, v: float): void =
+        values.del(k)
+    )
+
+    check(values[1] == 1.5)
+    check(values[2] == 2.5)
+    check(values[3] == 3.5)
+
+    c.add(5)
+    check(values[5] == 5.5)
+    c.remove(3)
+    check(not (3 in values))
+
+  test "ObservableTable.mapToTable with caching and get":
+    let c = observableCollection(@[1,2])
+    let t = c.mapToTable(
+      proc(k: int): float =
+        float(k) + 0.5
+    ).cache.source.get(3)
+
+    var value: Option[float] = none[float]()
+    discard t.subscribe(
+      proc(val: Option[float]): void =
+        value = val
+    )
+
+    check(value.isNone)
+    c.add(3)
+    check(value.isSome and value.get == 3.5)

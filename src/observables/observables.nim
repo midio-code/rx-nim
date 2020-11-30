@@ -364,19 +364,6 @@ proc distinctUntilChanged*[T](self: Observable[T]): Observable[T] =
   )
 
 
-proc log*[A](observable: Observable[A], prefix: string = "Observable changed: "): Observable[A] =
-  observable.map(
-    proc(x: A): A =
-      echo prefix, $x
-      x
-  )
-
-proc loggingSubscription*[A](observable: Observable[A], prefix: string = "Observable changed: "): Subscription =
-  observable.subscribe(
-    proc(x: A): void =
-      echo prefix, $x
-  )
-
 proc take*[T](self: Observable[T], num: int): Observable[T] =
   var counter = 0
   Observable[T](
@@ -388,9 +375,7 @@ proc take*[T](self: Observable[T], num: int): Observable[T] =
           proc(newVal: T): void =
             subscriber.onNext(newVal)
             counter += 1
-            echo "Subscriber: ", isNil(subscription)
             if counter >= num and subscriber.onCompleted.isSome:
-              echo "Had a completed"
               subscriber.onCompleted.get()()
               if isNil subscription:
                 # NOTE: Is subscription is nil here, it means that the source

@@ -45,6 +45,19 @@ proc asObservableCollection*[T](values: seq[Observable[T]]): CollectionSubject[T
   )
   res
 
+# NOTE: HACK
+proc cache*[T](self: ObservableCollection[T]): CollectionSubject[T] =
+  let subject = observableCollection[T]()
+  discard self.subscribe(
+    proc(added: T): void =
+      subject.add(added),
+    proc(removed: T): void =
+      subject.remove(removed),
+    proc(initialItems: seq[T]): void =
+      subject.values = initialItems
+  )
+  subject
+
 proc subscribe*[T](self: ObservableCollection[T], onAdded: T -> void, onRemoved: T -> void): Subscription =
   self.onSubscribe(CollectionSubscriber[T](
     onAdded: onAdded,
@@ -259,9 +272,34 @@ proc combineLatest*[A,B,R](a: ObservableCollection[A], b: ObservableCollection[B
       )
   )
 
-proc log*[T](self: ObservableCollection[T], prefix: string = ""): ObservableCollection[T] =
-  self.map(
-    proc(x: T): T =
-      echo(prefix, $x)
-      x
+
+# TODO: Write tests
+proc firstWhere*[T](self: ObservableCollection[T], predicate: T -> bool): Observable[T] =
+  var emittedStack: seq[T] = @[]
+  Observable[T](
+    onSubscribe:
+      proc(subscriber: Subscriber[T]): Subscription =
+        self.subscribe(
+          proc(added: T): void =
+            if emittedStack.len > 0:
+              return
+            if predicate(added):
+              emittedStack.add(added)
+              subscriber.onNext(added)
+              return,
+          proc(removed: T): void =
+            if removed in emittedStack:
+              emittedStack.delete(emittedStack.find(removed))
+              if emittedStack.len > 0:
+                subscriber.onNext(emittedStack[emittedStack.len - 1]),
+          proc(initial: seq[T]): void =
+            for i in initial:
+              if predicate(i):
+                subscriber.onNext(i)
+                emittedStack.add(i)
+                return
+        )
   )
+
+proc firstWhere*[T](self: CollectionSubject[T], predicate: T -> bool): Observable[T] =
+  self.source.firstWhere(predicate)
