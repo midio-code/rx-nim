@@ -12,6 +12,15 @@ proc choose*[T](self: Observable[bool], onTrue: T, onFalse: T): Observable[T] =
         onFalse
   )
 
+proc whenTrue*[T](self: Observable[bool], onTrue: T): Observable[Option[T]] =
+  self.map(
+    proc(x: bool): Option[T] =
+      if x:
+        some(onTrue)
+      else:
+        none[T]()
+  )
+
 proc unwrap*[T](self: Observable[Option[T]]): Observable[T] =
   self.filter(
     proc(x: Option[T]): bool =
