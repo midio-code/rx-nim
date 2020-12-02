@@ -1,4 +1,4 @@
-import sugar, options, sequtils
+import sugar, options, sequtils, tables, hashes
 import types
 import observables
 import utils
@@ -25,7 +25,11 @@ proc add*[T](self: CollectionSubject[T], item: T): void =
     subscriber.onAdded(item)
 
 proc remove*[T](self: CollectionSubject[T], item: T): void =
-  self.values.delete(self.values.find(item))
+  let index = self.values.find(item)
+  if index >= self.values.len or index < 0:
+    raise newException(Exception, "Tried to remove an item that was not in the collection.")
+  self.values.delete(index)
+
   for subscriber in self.subscribers:
     subscriber.onRemoved(item)
 
@@ -54,7 +58,8 @@ proc cache*[T](self: ObservableCollection[T]): CollectionSubject[T] =
     proc(removed: T): void =
       subject.remove(removed),
     proc(initialItems: seq[T]): void =
-      subject.values = initialItems
+      for i in initialItems:
+        subject.add(i)
   )
   subject
 
@@ -120,16 +125,27 @@ proc len*[T](self: CollectionSubject[T]): Observable[int] =
 #   self.source.len()
 
 proc map*[T,R](self: ObservableCollection[T], mapper: T -> R): ObservableCollection[R] =
+  ## Maps items using the supplied mapper function. T must have hash implemented in order for this operator
+  ## to work properly.
+  var mapped = initTable[T,R]()
   ObservableCollection[R](
     onSubscribe: proc(subscriber: CollectionSubscriber[R]): Subscription =
       let subscription = self.subscribe(
         proc(newVal: T): void =
-          subscriber.onAdded(mapper(newVal)),
+          let res = mapper(newVal)
+          mapped[newVal] = res
+          subscriber.onAdded(res),
         proc(removedVal: T): void =
-          subscriber.onRemoved(mapper(removedVal)),
+          let mappedItem = mapped[removedVal]
+          subscriber.onRemoved(mappedItem),
         proc(initialItems: seq[T]): void =
+          var mappedItems: seq[R] = @[]
+          for i in initialItems:
+            let mappedItem = mapper(i)
+            mapped[i] = mappedItem
+            mappedItems.add(mappedItem)
           if subscriber.initialItems.isSome:
-            subscriber.initialItems.get()(initialItems.map(mapper))
+            subscriber.initialItems.get()(mappedItems)
       )
       Subscription(
         dispose: subscription.dispose
@@ -138,7 +154,6 @@ proc map*[T,R](self: ObservableCollection[T], mapper: T -> R): ObservableCollect
 
 template map*[T,R](self: CollectionSubject[T], mapper: (T) -> R): ObservableCollection[R] =
   self.source.map(mapper)
-
 
 proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): ObservableCollection[T] =
   ObservableCollection[T](
