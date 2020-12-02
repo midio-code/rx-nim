@@ -135,7 +135,7 @@ proc next*[T](self: Subject[T], newVal: T): void =
   self.value = newVal
   self.notifySubscribers()
 
-proc next*[T](self: Subject[T], transformer: (T) -> T): void =
+proc next*[T](self: Subject[T], transformer: T -> T): void =
   ## Used to push a new value to the subject, causing it to notify all its subscribers/observers.
   ## This overload is useful if one wants to transform the current ``value`` using some mapping function.
   self.next(transformer(self.value))
@@ -146,7 +146,7 @@ converter toObservable*[T](subject: Subject[T]): Observable[T] =
   subject.source
 
 # Operators
-proc map*[T,R](self: Observable[T], mapper: (T) -> R): Observable[R] =
+proc map*[T,R](self: Observable[T], mapper: T -> R): Observable[R] =
   ## Returns a new ``Observable`` which maps values from the source ``Observable`` to a new type and value.
   result = Observable[R](
     onSubscribe: proc(subscriber: Subscriber[R]): Subscription =
