@@ -33,7 +33,7 @@ type
     subscribers*: seq[Subscriber[T]]
 
   ChangeKind* {.pure.} = enum
-    Added, Removed, Inserted, Changed, InitialItems
+    Added, Removed, InitialItems
 
   Change*[T] = object
     case kind*: ChangeKind
@@ -41,12 +41,6 @@ type
       newItem*: T
     of ChangeKind.Removed:
       removedItem*: T
-    of ChangeKind.Inserted:
-      index*: int
-      insertedItem*: T
-    of ChangeKind.Changed:
-      atIndex*: int
-      newValue*: T
     of ChangeKind.InitialItems:
       items*: seq[T]
 
