@@ -540,3 +540,26 @@ suite "Observable table":
     check(value.isNone)
     c.add(3)
     check(value.isSome and value.get == 3.5)
+
+  test "ObservableTable[K,V].get(Observable[K])":
+    let t = observableTable[string, int]()
+    let key = behaviorSubject("one")
+
+    let x = behaviorSubject(t.get(key))
+
+    check(x.value == none[int]())
+
+    t.set("one", 1)
+    check(x.value == some(1))
+
+    t.set("two", 2)
+    check(x.value == some(1))
+
+    key <- "three"
+    check(x.value == none[int]())
+
+    key <- "two"
+    check(x.value == some(2))
+
+    discard t.delete("two")
+    check(x.value == none[int]())

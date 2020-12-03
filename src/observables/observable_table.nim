@@ -62,6 +62,40 @@ proc get*[TKey, TValue](self: ObservableTable[TKey, TValue], key: TKey): Observa
 template get*[TKey, TValue](self: TableSubject[TKey, TValue], key: TKey): Observable[Option[TValue]] =
   self.source.get(key)
 
+proc get*[TKey, TValue](self: ObservableTable[TKey,TValue], key: Observable[TKey]): Observable[Option[TValue]] =
+  var items = initTable[TKey,TValue]()
+  Observable[Option[TValue]](
+    onSubscribe: proc(subscriber: Subscriber[Option[TValue]]): Subscription =
+      var currentKey: TKey
+      let keySub = key.subscribe(
+        proc(newKey: TKey): void =
+          if newKey != currentKey:
+            currentKey = newKey
+            if newKey in items:
+              subscriber.onNext(some(items[newKey]))
+            else:
+              subscriber.onNext(none[TValue]())
+      )
+      let valueSub = self.subscribe(
+        proc(k: TKey, val: TValue): void =
+          items[k] = val
+          if currentKey == k:
+            subscriber.onNext(some(val)),
+        proc(k: TKey, val: TValue): void =
+          items.del(k)
+          if currentKey == k:
+            subscriber.onNext(none[TValue]())
+      )
+      Subscription(
+        dispose: proc() =
+          keySub.dispose()
+          valueSub.dispose()
+      )
+  )
+
+template get*[TKey, TValue](self: TableSubject[TKey,TValue], key: Observable[TKey]): Observable[Option[TValue]] =
+  self.source.get(key)
+
 proc keys*[TKey, TValue](self: ObservableTable[TKey, TValue]): ObservableCollection[TKey] =
   var keys: seq[TKey] = @[]
   ObservableCollection[TKey](
