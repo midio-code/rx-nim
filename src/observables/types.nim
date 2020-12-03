@@ -32,11 +32,26 @@ type
     didComplete*: bool
     subscribers*: seq[Subscriber[T]]
 
+  ChangeKind* {.pure.} = enum
+    Added, Removed, Inserted, Changed, InitialItems
+
+  Change*[T] = object
+    case kind*: ChangeKind
+    of ChangeKind.Added:
+      newItem*: T
+    of ChangeKind.Removed:
+      removedItem*: T
+    of ChangeKind.Inserted:
+      index*: int
+      insertedItem*: T
+    of ChangeKind.Changed:
+      atIndex*: int
+      newValue*: T
+    of ChangeKind.InitialItems:
+      items*: seq[T]
+
   CollectionSubscriber*[T] = ref object
-    onAdded*: T -> void
-    onRemoved*: T -> void
-    ## The values present in the collection when subscribing
-    initialItems*: Option[seq[T] -> void]
+    onChanged*: Change[T] -> void
 
   ObservableCollection*[T] = ref object
     onSubscribe*: CollectionSubscriber[T] -> Subscription

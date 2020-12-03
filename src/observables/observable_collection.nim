@@ -10,8 +10,12 @@ proc observableCollection*[T](values: seq[T] = @[]): CollectionSubject[T] =
   subject.source = ObservableCollection[T](
     onSubscribe: proc(subscriber: CollectionSubscriber[T]): Subscription =
       subject.subscribers.add(subscriber)
-      if subscriber.initialItems.isSome:
-        subscriber.initialItems.get()(subject.values)
+      subscriber.onChanged(
+        Change[T](
+          kind: ChangeKind.InitialItems,
+          items: subject.values
+        )
+      )
       Subscription(
         dispose: proc(): void =
           subject.subscribers.remove(subscriber)
@@ -22,7 +26,12 @@ proc observableCollection*[T](values: seq[T] = @[]): CollectionSubject[T] =
 proc add*[T](self: CollectionSubject[T], item: T): void =
   self.values.add(item)
   for subscriber in self.subscribers:
-    subscriber.onAdded(item)
+    subscriber.onChanged(
+      Change[T](
+        kind: ChangeKind.Added,
+        newItem: item
+      )
+    )
 
 proc remove*[T](self: CollectionSubject[T], item: T): void =
   let index = self.values.find(item)
@@ -31,7 +40,12 @@ proc remove*[T](self: CollectionSubject[T], item: T): void =
   self.values.delete(index)
 
   for subscriber in self.subscribers:
-    subscriber.onRemoved(item)
+    subscriber.onChanged(
+      Change[T](
+        kind: ChangeKind.Removed,
+        removedItem: item
+      )
+    )
 
 proc asObservableCollection*[T](values: seq[Observable[T]]): CollectionSubject[T] =
   let res = observableCollection[T]()
@@ -63,17 +77,46 @@ proc cache*[T](self: ObservableCollection[T]): CollectionSubject[T] =
   )
   subject
 
+
+proc subscribe*[T](self: ObservableCollection[T], subscriber: CollectionSubscriber[T]): Subscription =
+  self.onSubscribe(subscriber)
+
+template subscribe*[T](self: CollectionSubject[T], subscriber: CollectionSubscriber[T]): Subscription =
+  self.source.subscribe(subscriber)
+
+
+proc subscribe*[T](self: ObservableCollection[T], onChanged: Change[T] -> void): Subscription =
+  self.onSubscribe(CollectionSubscriber[T](
+    onChanged: onChanged
+  ))
+
+template subscribe*[T](self: CollectionSubject[T], onChanged: Change[T] -> void): Subscription =
+  self.source.subscribe(onChanged)
+
 proc subscribe*[T](self: ObservableCollection[T], onAdded: T -> void, onRemoved: T -> void): Subscription =
   self.onSubscribe(CollectionSubscriber[T](
-    onAdded: onAdded,
-    onRemoved: onRemoved
+    onChanged: proc(change: Change[T]): void =
+      case change.kind:
+        of ChangeKind.Added:
+          onAdded(change.newItem)
+        of ChangeKind.Removed:
+          onRemoved(change.removedItem)
+        else:
+          discard
   ))
 
 proc subscribe*[T](self: ObservableCollection[T], onAdded: T -> void, onRemoved: T -> void, initialItems: seq[T] -> void): Subscription =
   self.onSubscribe(CollectionSubscriber[T](
-    onAdded: onAdded,
-    onRemoved: onRemoved,
-    initialItems: some(initialItems)
+    onChanged: proc(change: Change[T]): void =
+      case change.kind:
+        of ChangeKind.Added:
+          onAdded(change.newItem)
+        of ChangeKind.Removed:
+          onRemoved(change.removedItem)
+        of ChangeKind.InitialItems:
+          initialItems(change.items)
+        else:
+          discard
   ))
 
 proc subscribe*[T](self: CollectionSubject[T], onAdded: T -> void, onRemoved: T -> void): Subscription =
@@ -134,18 +177,26 @@ proc map*[T,R](self: ObservableCollection[T], mapper: T -> R): ObservableCollect
         proc(newVal: T): void =
           let res = mapper(newVal)
           mapped[newVal] = res
-          subscriber.onAdded(res),
+          subscriber.onChanged(Change[R](
+            kind: ChangeKind.Added,
+            newItem: res
+          )),
         proc(removedVal: T): void =
           let mappedItem = mapped[removedVal]
-          subscriber.onRemoved(mappedItem),
+          subscriber.onChanged(Change[R](
+            kind: ChangeKind.Removed,
+            removedItem: mappedItem
+          )),
         proc(initialItems: seq[T]): void =
           var mappedItems: seq[R] = @[]
           for i in initialItems:
             let mappedItem = mapper(i)
             mapped[i] = mappedItem
             mappedItems.add(mappedItem)
-          if subscriber.initialItems.isSome:
-            subscriber.initialItems.get()(mappedItems)
+          subscriber.onChanged(Change[R](
+            kind: ChangeKind.InitialItems,
+            items: mappedItems
+          )),
       )
       Subscription(
         dispose: subscription.dispose
@@ -161,13 +212,22 @@ proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): Observable
       let subscription = self.subscribe(
         proc(newVal: T): void =
           if predicate(newVal):
-            subscriber.onAdded(newVal),
+            subscriber.onChanged(Change[T](
+              kind: ChangeKind.Added,
+              newItem: newVal
+            )),
         proc(removedVal: T): void =
           if predicate(removedVal):
-            subscriber.onRemoved(removedVal),
+            subscriber.onChanged(Change[T](
+              kind: ChangeKind.Removed,
+              removedItem: removedVal
+            )),
         proc(initialItems: seq[T]): void =
-          if subscriber.initialItems.isSome:
-            subscriber.initialItems.get()(initialItems.filter(predicate))
+          subscriber.onChanged(Change[T](
+            kind: ChangeKind.InitialItems,
+            items: initialItems.filter(predicate)
+          )),
+        # TODO: Support the remaining change kinds
       )
       Subscription(
         dispose: subscription.dispose
@@ -176,6 +236,32 @@ proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): Observable
 
 template filter*[T](self: CollectionSubject[T], predicate: T -> bool): ObservableCollection[T] =
   self.source.filter(predicate)
+
+# proc switch*[T](self: ObservableCollection[Observable[T]]): ObservableCollection[T] =
+#   ObservableCollection[T](
+#     onSubscribe: proc(subscriber: CollectionSubscriber[T]): Subscription =
+#       var subscriptions = initTable[Subscription, ]
+
+#       let subscription = self.subscribe(
+#         proc(newVal: Observable[T]): void =
+#           subscriptions[newVal] = newVal.subscribe(
+#             proc(newVal: T): void =
+#               subscriber.onAdded(newVal)
+#           )
+#         proc(removedVal: T): void =
+#           subscription[removedVal].dispose()
+#           if predicate(removedVal):
+#             subscriber.onRemoved(removedVal),
+#         proc(initialItems: seq[T]): void =
+#           if subscriber.initialItems.isSome:
+#             subscriber.initialItems.get()(initialItems.filter(predicate))
+#       )
+#       Subscription(
+#         dispose: subscription.dispose
+#       )
+#   )
+
+
 
 proc toObservable*[T](self: CollectionSubject[T]): Observable[seq[T]] =
   createObservable(
@@ -222,14 +308,20 @@ proc observableCollection*[T](source: ObservableCollection[T]): CollectionSubjec
   subject.source = ObservableCollection[T](
     onSubscribe: proc(subscriber: CollectionSubscriber[T]): Subscription =
       let subscription = source.subscribe(
-        proc(added: T): void =
-          subject.add(added),
-        proc(removed: T): void =
-          subject.remove(removed),
-        proc(initialItems: seq[T]): void =
-          subject.values = initialItems
-          if subscriber.initialItems.isSome:
-            subscriber.initialItems.get()(subject.values)
+        proc(change: Change[T]): void =
+          case change.kind:
+            of ChangeKind.Added:
+              subject.add(change.newItem)
+            of ChangeKind.Removed:
+              subject.remove(change.removedItem)
+            of ChangeKind.InitialItems:
+              subject.values = change.items
+              subscriber.onChanged(
+                change
+              )
+            else:
+              # TODO: Support rest of changes
+              discard
       )
 
       Subscription(

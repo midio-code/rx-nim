@@ -300,6 +300,26 @@ suite "observable collection tests":
     collection.remove(2)
     check(val.value == 3)
 
+  # test "ObservableCollection[T].filter(T -> Observable[bool]): ObservableCollection[T]":
+  #   let comparator = behaviorSubject(2)
+  #   let collection = observableCollection(@["one", "two", "three"])
+  #   let filtered = collection.filter(
+  #     proc(val: string): Observable[bool] =
+  #       comparator.map(
+  #         proc(c: int): bool =
+  #           val.len > c
+  #       )
+  #   ).cached
+
+  #   check(filtered.values.len == 3)
+  #   comparator <- 3
+  #   check(filtered.values.len == 1)
+  #   collection.add("four")
+  #   check(filtered.values.len == 2)
+  #   comparator <- 2
+  #   check(filtered.values.len == 4)
+
+
 
 suite "More observable tests":
   test "Subject (PublishSubject) basics":

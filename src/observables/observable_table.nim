@@ -104,13 +104,19 @@ proc keys*[TKey, TValue](self: ObservableTable[TKey, TValue]): ObservableCollect
         proc(key: TKey, val: TValue): void =
           if key notin keys:
             keys.add(key)
-            subscriber.onAdded(key),
+            subscriber.onChanged(Change[TKey](
+              kind: ChangeKind.Added,
+              newItem: key
+            )),
         proc(key: TKey, val: TValue): void =
           # NOTE: It shouldn't be possible to get to a state
           # where keys doesn't contain key at this point, so we're
           # not checking for it.
           keys.delete(keys.find(key))
-          subscriber.onRemoved(key)
+          subscriber.onChanged(Change[TKey](
+            kind: ChangeKind.Removed,
+            removedItem: key
+          )),
       )
   )
 
@@ -122,13 +128,19 @@ proc values*[TKey, TValue](self: ObservableTable[TKey, TValue]): ObservableColle
         proc(key: TKey, val: TValue): void =
           if val notin values:
             values.add(val)
-            subscriber.onAdded(val),
+            subscriber.onChanged(Change[TValue](
+              kind: ChangeKind.Added,
+              newItem: val
+            )),
         proc(key: TKey, val: TValue): void =
           # NOTE: It shouldn't be possible to get to a state
           # where keys doesn't contain key at this point, so we're
           # not checking for it.
           values.delete(values.find(val))
-          subscriber.onRemoved(val)
+          subscriber.onChanged(Change[TValue](
+            kind: ChangeKind.Removed,
+            removedItem: val
+          )),
       )
   )
 

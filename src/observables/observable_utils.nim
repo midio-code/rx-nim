@@ -72,6 +72,21 @@ proc switch*[A](observables: Observable[ObservableCollection[A]]): ObservableCol
       )
   )
 
+# proc switch*[A](collection: Observable[seq[Observable[A]]): Observable[seq[A]] =
+#   Observable[seq[A]](
+#     onSubscribe: proc(subscriber: Subscriber[seq[A]]): void =
+#       collection.subscribe(
+#         proc(items: seq[Observable[A]): void =
+#           var subscriptions: Subscription = @[]
+#           for item in items:
+#             subscriptions.add item.subscribe(
+#               proc(newVal: A): void =
+
+#             )
+#       )
+#   )
+
+
 
 proc `<-`*[T](subj: Subject[T], other: T): void =
   subj.next(other)
