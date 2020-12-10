@@ -126,3 +126,17 @@ proc log*[T](self: Observable[T], prefix: string = ""): Observable[T] =
       echo prefix, val
       val
   )
+
+proc unique*[T](self: Observable[T]): Observable[T] =
+  var prev = default(T)
+  self.filter(
+    proc(val: T): bool =
+      if val != prev:
+        prev = val
+        true
+      else:
+        false
+  )
+
+proc unique*[T](self: Subject[T]): Observable[T] =
+  self.source.unique()

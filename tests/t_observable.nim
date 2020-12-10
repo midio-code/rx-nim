@@ -159,6 +159,25 @@ suite "observable tests":
     check(oneComplete == 1)
     check(twoComplete == 1)
 
+  test "Observable.unique":
+    let s = behaviorSubject(1)
+    let v = s.unique.behaviorSubject
+    var count = 0
+    discard v.subscribe(
+      proc(val: int): void =
+        count += 1
+    )
+
+    check(count == 1)
+    s <- 1
+    s <- 1
+    check(count == 1)
+    s <- 2
+    check(count == 2)
+    s <- 2
+    check(count == 2)
+    s <- 3
+    check(count == 3)
 
 
 suite "observable collection tests":
