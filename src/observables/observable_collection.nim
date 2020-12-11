@@ -382,3 +382,27 @@ proc firstWhere*[T](self: ObservableCollection[T], predicate: T -> bool): Observ
 
 proc firstWhere*[T](self: CollectionSubject[T], predicate: T -> bool): Observable[T] =
   self.source.firstWhere(predicate)
+
+proc `&`*[T](self: ObservableCollection[T], other: ObservableCollection[T]): ObservableCollection[T] =
+  ## Combines two collection into one, without giving any guarantees about the ordering of their items.
+  ObservableCollection[T](
+    onSubscribe: proc(subscriber: CollectionSubscriber[T]): Subscription =
+      var didFireInitialItemsEvent = false
+      proc handler(change: Change[T]): void =
+        case change.kind:
+          of ChangeKind.Added, ChangeKind.Removed:
+            subscriber.onChanged(change)
+          of ChangeKind.InitialItems:
+            if not didFireInitialItemsEvent:
+              didFireInitialItemsEvent = true
+              subscriber.onChanged(change)
+            else:
+              for item in change.items:
+                subscriber.onChanged(
+                  Change[T](
+                    kind: ChangeKind.Added,
+                    newItem: item
+                  )
+                )
+      self.subscribe(handler) & other.subscribe(handler)
+  )

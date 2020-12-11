@@ -67,3 +67,11 @@ type
     source*: ObservableTable[TKey, TValue]
     items*: TableRef[TKey, TValue]
     subscribers*: seq[TableSubscriber[TKey, TValue]]
+
+proc `&`*(a,b: Subscription): Subscription =
+  Subscription(
+    dispose:
+      proc(): void =
+        a.dispose()
+        b.dispose()
+  )

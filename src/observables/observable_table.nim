@@ -46,6 +46,20 @@ proc subscribe*[TKey, TValue](self: ObservableTable[TKey, TValue], onSet: (TKey,
 template subscribe*[TKey, TValue](self: TableSubject[TKey, TValue], onSet: (TKey, TValue) -> void, onDeleted: (TKey, TValue) -> void): Subscription =
   self.source.subscribe(onSet, onDeleted)
 
+proc getCurrentValue*[TKey, TValue](self: TableSubject[TKey, TValue], key: TKey): Option[TValue] =
+  if key in self.items:
+    some(self.items[key])
+  else:
+    none[TValue]()
+
+proc getFirstKeyForValue*[TKey, TValue](self: TableSubject[TKey, TValue], value: TValue): Option[TKey] =
+  for k,v in self.items.pairs:
+    if v == value:
+      return some(k)
+  return none[TKey]()
+
+
+
 proc get*[TKey, TValue](self: ObservableTable[TKey, TValue], key: TKey): Observable[Option[TValue]] =
   Observable[Option[TValue]](
     onSubscribe: proc(subscriber: Subscriber[Option[TValue]]): Subscription =
