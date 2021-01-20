@@ -140,3 +140,15 @@ proc unique*[T](self: Observable[T]): Observable[T] =
 
 proc unique*[T](self: Subject[T]): Observable[T] =
   self.source.unique()
+
+template castTo*[T](self: Observable[T], caster: untyped): untyped =
+  self.map(
+    proc(x: T): auto =
+      result = caster(x)
+  )
+
+template castTo*[T](self: ObservableCollection[T], caster: untyped): untyped =
+  self.map(
+    proc(x: T): auto =
+      result = caster(x)
+  )
