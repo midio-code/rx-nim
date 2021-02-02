@@ -7,21 +7,27 @@ proc toSubscriber[T](onNext: (T) -> void): Subscriber[T] =
   Subscriber[T](onNext: onNext, onCompleted: none[() -> void](), onError: none[(Error) -> void]())
 
 proc subscribe*[T](self: Observable[T], subscriber: Subscriber[T]): Subscription =
+  assert(not isNil(self))
   self.onSubscribe(subscriber)
 
 proc subscribe*[T](self: Subject[T], subscriber: Subscriber[T]): Subscription =
+  assert(not isNil(self))
   self.source.onSubscribe(subscriber)
 
 proc subscribe*[T](self: Observable[T], onNext: (T) -> void): Subscription =
+  assert(not isNil(self))
   self.onSubscribe(toSubscriber(onNext))
 
 proc subscribe*[T](self: Observable[T], onNext: (T) -> void, onCompleted: () -> void): Subscription =
+  assert(not isNil(self))
   self.onSubscribe(Subscriber[T](onNext: onNext, onCompleted: some(onCompleted), onError: none[(Error) -> void]()))
 
 proc subscribe*[T](self: Observable[T], onNext: (T) -> void, onCompleted: Option[() -> void], onError: Option[(Error) -> void]): Subscription =
+  assert(not isNil(self))
   self.onSubscribe(Subscriber[T](onNext: onNext, onCompleted: onCompleted, onError: onError))
 
 proc subscribe*[T](self: Subject[T], onNext: (T) -> void): Subscription =
+  assert(not isNil(self))
   self.source.subscribe(onNext)
 
 proc notifySubscribers[T](self: Subject[T]): void =

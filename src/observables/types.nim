@@ -33,14 +33,20 @@ type
     subscribers*: seq[Subscriber[T]]
 
   ChangeKind* {.pure.} = enum
-    Added, Removed, InitialItems
+    Added, Removed, Changed, InitialItems
 
   Change*[T] = object
     case kind*: ChangeKind
     of ChangeKind.Added:
       newItem*: T
+      addedAtIndex*: int
     of ChangeKind.Removed:
       removedItem*: T
+      removedFromIndex*: int
+    of ChangeKind.Changed:
+      changedAtIndex*: int
+      oldVal*: T
+      newVal*: T
     of ChangeKind.InitialItems:
       items*: seq[T]
 
@@ -65,7 +71,7 @@ type
 
   TableSubject*[TKey, TValue] = ref object
     source*: ObservableTable[TKey, TValue]
-    items*: TableRef[TKey, TValue]
+    items*: OrderedTableRef[TKey, TValue]
     subscribers*: seq[TableSubscriber[TKey, TValue]]
 
 proc `&`*(a,b: Subscription): Subscription =

@@ -24,12 +24,14 @@ proc observableCollection*[T](values: seq[T] = @[]): CollectionSubject[T] =
   subject
 
 proc add*[T](self: CollectionSubject[T], item: T): void =
+  let index = self.values.len
   self.values.add(item)
   for subscriber in self.subscribers:
     subscriber.onChanged(
       Change[T](
         kind: ChangeKind.Added,
-        newItem: item
+        newItem: item,
+        addedAtIndex: index
       )
     )
 
@@ -43,9 +45,28 @@ proc remove*[T](self: CollectionSubject[T], item: T): void =
     subscriber.onChanged(
       Change[T](
         kind: ChangeKind.Removed,
-        removedItem: item
+        removedItem: item,
+        removedFromIndex: index
       )
     )
+
+proc set*[T](self: CollectionSubject[T], index: int, newVal: T): void =
+  if index >= self.values.len:
+    raise newException(Exception, "Unable to set a value outside the range of the collection")
+  let oldVal = self.values[index]
+  self.values[index] = newVal
+  for subscriber in self.subscribers:
+    subscriber.onChanged(
+      Change[T](
+        kind: ChangeKind.Changed,
+        changedAtIndex: index,
+        oldVal: oldVal,
+        newVal: newVal,
+      )
+    )
+
+template `[]`*[T](self: CollectionSubject[T], index: int, newVal: T): void =
+  self.set(index, newVal)
 
 proc asObservableCollection*[T](values: seq[Observable[T]]): CollectionSubject[T] =
   let res = observableCollection[T]()
@@ -73,6 +94,8 @@ proc cache*[T](self: ObservableCollection[T]): CollectionSubject[T] =
           subject.add(change.newItem)
         of ChangeKind.Removed:
           subject.remove(change.removedItem)
+        of ChangeKind.Changed:
+          subject.set(change.changedAtIndex, change.newVal)
         of ChangeKind.InitialItems:
           for i in change.items:
             subject.add(i)
@@ -184,6 +207,12 @@ proc map*[T,R](self: ObservableCollection[T], mapper: T -> R): ObservableCollect
               subscriber.onChanged(Change[R](
                 kind: ChangeKind.Removed,
                 removedItem: mappedItem
+              ))
+            of ChangeKind.Changed:
+              subscriber.onChanged(Change[R](
+                kind: ChangeKind.Changed,
+                newVal: mapper(change.newVal),
+                changedAtIndex: change.changedAtIndex
               ))
             of ChangeKind.InitialItems:
               var mappedItems: seq[R] = @[]
@@ -353,34 +382,37 @@ proc combineLatest*[A,B,R](a: ObservableCollection[A], b: ObservableCollection[B
 
 
 # TODO: Write tests
-proc firstWhere*[T](self: ObservableCollection[T], predicate: T -> bool): Observable[T] =
+proc firstWhere*[T](self: ObservableCollection[T], predicate: T -> bool): Observable[Option[T]] =
   var emittedStack: seq[T] = @[]
-  Observable[T](
+  Observable[Option[T]](
     onSubscribe:
-      proc(subscriber: Subscriber[T]): Subscription =
+      proc(subscriber: Subscriber[Option[T]]): Subscription =
         self.subscribe(
           proc(added: T): void =
             if emittedStack.len > 0:
               return
             if predicate(added):
               emittedStack.add(added)
-              subscriber.onNext(added)
+              subscriber.onNext(some(added))
               return,
           proc(removed: T): void =
             if removed in emittedStack:
               emittedStack.delete(emittedStack.find(removed))
               if emittedStack.len > 0:
-                subscriber.onNext(emittedStack[emittedStack.len - 1]),
+                subscriber.onNext(some(emittedStack[emittedStack.len - 1]))
+              else:
+                subscriber.onNext(none[T]())
+          ,
           proc(initial: seq[T]): void =
             for i in initial:
               if predicate(i):
-                subscriber.onNext(i)
+                subscriber.onNext(some(i))
                 emittedStack.add(i)
                 return
         )
   )
 
-proc firstWhere*[T](self: CollectionSubject[T], predicate: T -> bool): Observable[T] =
+proc firstWhere*[T](self: CollectionSubject[T], predicate: T -> bool): Observable[Option[T]] =
   self.source.firstWhere(predicate)
 
 proc `&`*[T](self: ObservableCollection[T], other: ObservableCollection[T]): ObservableCollection[T] =

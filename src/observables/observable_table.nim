@@ -1,10 +1,10 @@
-import tables, options, sequtils, sugar, strformat
+import tables, options, sequtils, sugar, strformat, sets
 import types
 import utils
 import observables
 import observable_collection
 
-proc observableTable*[TKey, TValue](initialItems: TableRef[TKey, TValue] = newTable[TKey, TValue]()): TableSubject[TKey, TValue] =
+proc observableTable*[TKey, TValue](initialItems: OrderedTableRef[TKey, TValue] = newOrderedTable[TKey, TValue]()): TableSubject[TKey, TValue] =
   let subject = TableSubject[TKey, TValue](
     items: initialItems,
   )
@@ -135,28 +135,49 @@ proc keys*[TKey, TValue](self: ObservableTable[TKey, TValue]): ObservableCollect
   )
 
 proc values*[TKey, TValue](self: ObservableTable[TKey, TValue]): ObservableCollection[TValue] =
-  var values: seq[TValue] = @[]
+  var keys: seq[TKey] = @[]
+  var values = initOrderedTable[TKey,TValue]()
   ObservableCollection[TValue](
     onSubscribe: proc(subscriber: CollectionSubscriber[TValue]): Subscription =
       self.subscribe(
         proc(key: TKey, val: TValue): void =
-          if val notin values:
-            values.add(val)
+          if key notin keys:
+            let index = keys.len
+            keys.add(key)
+            values[key] = val
             subscriber.onChanged(Change[TValue](
               kind: ChangeKind.Added,
-              newItem: val
-            )),
+              newItem: val,
+              addedAtIndex: index
+            ))
+          else:
+            let index = keys.find(key)
+            let oldVal = values[key]
+            values[key] = val
+            subscriber.onChanged(
+              Change[TValue](
+                kind: ChangeKind.Changed,
+                changedAtIndex: index,
+                oldVal: oldVal,
+                newVal: val,
+              )
+            ),
         proc(key: TKey, val: TValue): void =
-          # NOTE: It shouldn't be possible to get to a state
-          # where keys doesn't contain key at this point, so we're
-          # not checking for it.
-          values.delete(values.find(val))
-          subscriber.onChanged(Change[TValue](
-            kind: ChangeKind.Removed,
-            removedItem: val
-          )),
+          let keyIndex = keys.find(key)
+          values.del(key)
+          keys.delete(keyIndex)
+          subscriber.onChanged(
+            Change[TValue](
+              kind: ChangeKind.Removed,
+              removedItem: val,
+              removedFromIndex: keyIndex
+            )
+          )
       )
   )
+
+template values*[TKey, TValue](self: TableSubject[TKey, TValue]): ObservableCollection[TValue] =
+  self.source.values()
 
 proc toObservableTable*[TKey, TValue](self: Observable[seq[TKey]], mapper: TKey -> TValue): ObservableTable[TKey, TValue] =
   let values = newTable[TKey, TValue]()
