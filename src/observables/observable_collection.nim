@@ -204,14 +204,17 @@ proc map*[T,R](self: ObservableCollection[T], mapper: T -> R): ObservableCollect
               ))
             of ChangeKind.Removed:
               let mappedItem = mapped[change.removedItem]
+              mapped.del(change.removedItem)
               subscriber.onChanged(Change[R](
                 kind: ChangeKind.Removed,
                 removedItem: mappedItem
               ))
             of ChangeKind.Changed:
+              let newMappedVal = mapper(change.newVal)
+              mapped[change.newVal] = newMappedVal
               subscriber.onChanged(Change[R](
                 kind: ChangeKind.Changed,
-                newVal: mapper(change.newVal),
+                newVal: newMappedVal,
                 changedAtIndex: change.changedAtIndex
               ))
             of ChangeKind.InitialItems:
