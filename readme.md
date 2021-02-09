@@ -18,6 +18,14 @@ let bar = foo.source.map(
 )
 ```
 
+New values can be pushed to a subject by using the `.next(T)` function, or the `<-` operator:
+
+```nim
+let foo = behaviorSubject(123)
+foo.next(321)
+foo <- 222
+```
+
 ### BehaviorSubject
 
 Create by
@@ -122,7 +130,84 @@ Pushes `num` values from `self` and then completes.
 
 # ObservableCollection
 
-TODO
+Observable collections observables that contains a list of items, and pushes information about when items are added, removed, or changed.
+
+## CollectionSubject
+
+Just like with Subject, a CollectionSubject contains a list of data that can be observed. Create a new CollectionSubject using:
+
+```nim
+let collection = observableCollection(@['a', 'b', 'c']) # optional default items
+```
+
+### Add
+
+```nim
+add[T](self: CollectionSubject[T], item: T): void
+```
+
+### Remove
+
+```nim
+remove[T](self: CollectionSubject[T], item: T): void
+```
+
+### Set
+
+```nim
+set[T](self: CollectionSubject[T], index: int, newVal: T): void
+```
+
+### Len
+
+
+### Cache
+
+```nim
+cache[T](self: ObservableCollection[T]): CollectionSubject[T]
+```
+
+### AsObservableCollection
+
+```nim
+asObservableCollection[T](values: seq[Observable[T]]): CollectionSubject[T]
+```
+
+### Map
+
+```nim
+map[T,R](self: ObservableCollection[T], mapper: T -> R): ObservableCollection[R]
+```
+
+### Filter
+
+```nim
+filter[T](self: ObservableCollection[T], predicate: T -> bool): ObservableCollection[T]
+```
+
+### ToObservable
+
+```nim
+toObservable[T](self: CollectionSubject[T]): Observable[seq[T]]
+```
+
+### CombineLatest
+
+```nim
+combineLatest[A,B,R](a: ObservableCollection[A], b: ObservableCollection[B], mapper: (A,B) -> R): ObservableCollection[R]
+```
+
+### FirstWhere
+
+```nim
+firstWhere[T](self: ObservableCollection[T], predicate: T -> bool): Observable[Option[T]]
+```
+
+### & (concat)
+
+```nim
+`&`[T](self: ObservableCollection[T], other: ObservableCollection[T]): ObservableCollection[T]
+```
 
 # ObservableTable
 

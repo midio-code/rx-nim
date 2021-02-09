@@ -65,7 +65,7 @@ proc set*[T](self: CollectionSubject[T], index: int, newVal: T): void =
       )
     )
 
-template `[]`*[T](self: CollectionSubject[T], index: int, newVal: T): void =
+template `[]=`*[T](self: CollectionSubject[T], index: int, newVal: T): void =
   self.set(index, newVal)
 
 proc asObservableCollection*[T](values: seq[Observable[T]]): CollectionSubject[T] =
