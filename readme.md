@@ -1,5 +1,7 @@
 # Reactive programming in nim
 
+[![nimble](https://raw.githubusercontent.com/yglukhov/nimble-tag/master/nimble_js.png)](https://github.com/yglukhov/nimble-tag)
+
 An implementation of [ReactiveX](http://reactivex.io/) in Nim. It is stilly very much in an alpha stage.
 
 # Observable
