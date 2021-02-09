@@ -211,5 +211,89 @@ firstWhere[T](self: ObservableCollection[T], predicate: T -> bool): Observable[O
 
 # ObservableTable
 
-TODO
+## Set
+
+```nim
+set[TKey, TValue](self: TableSubject[TKey, TValue], key: TKey, value: TValue): void
+```
+
+## Delete
+
+```nim
+delete[TKey, TValue](self: TableSubject[TKey, TValue], key: TKey): Option[TValue]
+```
+
+## Get
+
+Since the table might change, getting a value returns an observable of an optional value. The value for a key will for example become none if someone deletes it from the table using `delete`.
+
+```nim
+get[TKey, TValue](self: ObservableTable[TKey, TValue], key: TKey): Observable[Option[TValue]]
+```
+
+The key can also itself be an observable
+
+```nim
+get[TKey, TValue](self: ObservableTable[TKey,TValue], key: Observable[TKey]): Observable[Option[TValue]]
+```
+
+## Keys
+
+```nim
+keys[TKey, TValue](self: ObservableTable[TKey, TValue]): ObservableCollection[TKey]
+```
+
+### Values
+
+```nim
+values[TKey, TValue](self: ObservableTable[TKey, TValue]): ObservableCollection[TValue]
+```
+
+## Operators
+
+### Map
+
+```nim
+map[K,V,KR,VR](self: ObservableTable[K,V], mapper: (K,V) -> (KR,VR)): ObservableTable[KR,VR]
+```
+
+### Filter
+
+```nim
+filter[K,V](self: ObservableTable[K,V], predicate: (K,V) -> bool): ObservableTable[K,V]
+```
+
+## Helpers
+
+### ToObservableTable
+
+```nim
+toObservableTable[TKey, TValue](self: Observable[seq[TKey]], mapper: TKey -> TValue): ObservableTable[TKey, TValue]
+```
+
+or
+
+
+```nim
+toObservableTable[T, TKey, TValue](self: ObservableCollection[T], mapper: T -> (TKey, TValue)): ObservableTable[TKey, TValue]
+```
+
+### MapToTable
+
+```nim
+mapToTable[TKey, TValue](self: ObservableCollection[TKey], mapper: TKey -> TValue): ObservableTable[TKey, TValue]
+```
+
+
+### GetCurrenctValue
+
+```nim
+getCurrentValue[TKey, TValue](self: TableSubject[TKey, TValue], key: TKey): Option[TValue]
+```
+
+### GetFirstKeyForValue
+
+```nim
+getFirstKeyForValue[TKey, TValue](self: TableSubject[TKey, TValue], value: TValue): Option[TKey]
+```
 
