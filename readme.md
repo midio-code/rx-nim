@@ -154,6 +154,12 @@ add[T](self: CollectionSubject[T], item: T): void
 remove[T](self: CollectionSubject[T], item: T): void
 ```
 
+### RemoveWhere
+
+```nim
+removeWhere[T](self: CollectionSubject[T], pred: (T,int) -> bool): bool
+```
+
 ### Set
 
 ```nim

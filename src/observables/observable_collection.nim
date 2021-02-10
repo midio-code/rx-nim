@@ -50,6 +50,29 @@ proc remove*[T](self: CollectionSubject[T], item: T): void =
       )
     )
 
+proc removeWhere*[T](self: CollectionSubject[T], pred: (T,int) -> bool): bool =
+  var index = -1
+  for i, item in self.values.pairs():
+    if pred(item, i):
+      index = i
+      break
+  if index >= self.values.len or index < 0:
+    return false
+
+  let item = self.values[index]
+  self.values.delete(index)
+  result = true
+
+  for subscriber in self.subscribers:
+    subscriber.onChanged(
+      Change[T](
+        kind: ChangeKind.Removed,
+        removedItem: item,
+        removedFromIndex: index
+      )
+    )
+
+
 proc set*[T](self: CollectionSubject[T], index: int, newVal: T): void =
   if index >= self.values.len:
     raise newException(Exception, "Unable to set a value outside the range of the collection")
