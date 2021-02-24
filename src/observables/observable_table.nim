@@ -47,6 +47,7 @@ template subscribe*[TKey, TValue](self: TableSubject[TKey, TValue], onSet: (TKey
   self.source.subscribe(onSet, onDeleted)
 
 proc getCurrentValue*[TKey, TValue](self: TableSubject[TKey, TValue], key: TKey): Option[TValue] =
+  assert(not isNil(self))
   if key in self.items:
     some(self.items[key])
   else:

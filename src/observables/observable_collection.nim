@@ -435,32 +435,33 @@ proc firstWhere*[T](self: ObservableCollection[T], predicate: T -> bool): Observ
                 subscriber.onNext(some(i))
                 emittedStack.add(i)
                 return
+            subscriber.onNext(none[T]())
         )
   )
 
 proc firstWhere*[T](self: CollectionSubject[T], predicate: T -> bool): Observable[Option[T]] =
   self.source.firstWhere(predicate)
 
-proc `&`*[T](self: ObservableCollection[T], other: ObservableCollection[T]): ObservableCollection[T] =
+proc toObservableCollection*[T](self: Observable[T]): ObservableCollection[T] =
   ## Combines two collection into one, without giving any guarantees about the ordering of their items.
   ObservableCollection[T](
     onSubscribe: proc(subscriber: CollectionSubscriber[T]): Subscription =
-      var didFireInitialItemsEvent = false
-      proc handler(change: Change[T]): void =
-        case change.kind:
-          of ChangeKind.Added, ChangeKind.Removed:
-            subscriber.onChanged(change)
-          of ChangeKind.InitialItems:
-            if not didFireInitialItemsEvent:
-              didFireInitialItemsEvent = true
-              subscriber.onChanged(change)
-            else:
-              for item in change.items:
-                subscriber.onChanged(
-                  Change[T](
-                    kind: ChangeKind.Added,
-                    newItem: item
-                  )
-                )
-      self.subscribe(handler) & other.subscribe(handler)
+      var previousVal = none[T]()
+      self.subscribe(
+        proc(newItem: T): void =
+          if previousVal.isNone:
+            subscriber.onChanged(Change[T](
+              kind: ChangeKind.Added,
+              newItem: newItem,
+              addedAtIndex: 0
+            ))
+          else:
+            subscriber.onChanged(Change[T](
+              kind: ChangeKind.Changed,
+              oldVal: previousVal.get,
+              newVal: newItem,
+              changedAtIndex: 0
+            ))
+          previousVal = some(newItem)
+      )
   )

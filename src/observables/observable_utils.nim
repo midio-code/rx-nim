@@ -1,4 +1,4 @@
-import options
+import options, sugar
 import ./types
 import ./observables
 
@@ -119,6 +119,11 @@ proc `&`*(a: Observable[string], b: string): Observable[string] =
     proc(a: string): string = a & b
   )
 
+proc `&`*[T](a: Observable[seq[T]], b: Observable[seq[T]]): Observable[seq[T]] =
+  a.combineLatest(
+    b,
+    (a,b) => a & b
+  )
 
 proc log*[T](self: Observable[T], prefix: string = ""): Observable[T] =
   self.map(
