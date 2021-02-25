@@ -217,6 +217,12 @@ firstWhere[T](self: ObservableCollection[T], predicate: T -> bool): Observable[O
 `&`[T](self: ObservableCollection[T], other: ObservableCollection[T]): ObservableCollection[T]
 ```
 
+### switch(ObservableCollection[Observable[A]]) -> ObservableCollection[A])
+
+```nim
+switch[A](self: ObservableCollection[Observable[A]]): ObservableCollection[A]
+```
+
 # ObservableTable
 
 ## Set
