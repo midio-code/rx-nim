@@ -1,4 +1,6 @@
 import sugar
+import sequtils
+import lists
 import options
 import tables
 import unittest
@@ -50,7 +52,7 @@ suite "observable tests":
   test "Combine latest":
     let s1 = behaviorSubject(5)
     let s2 = behaviorSubject(10)
-    let combined = s1.combineLatest(s2, (a,b) => (a + b))
+    let combined = s1.source.combineLatest(s2.source, (a,b) => (a + b))
     var res = 0
     discard combined.subscribe((newVal: int) => (res = newVal))
     check(res == 15)
@@ -120,7 +122,7 @@ suite "observable tests":
 
   test "Observable.take":
     let subj = behaviorSubject(1)
-    let one = subj.take(1)
+    let one = subj.source.take(1)
     var oneComplete = 0
     var oneSum = 0
     discard one.subscribe(
@@ -136,7 +138,7 @@ suite "observable tests":
     check(oneSum == 1)
     check(oneComplete == 1)
 
-    let two = subj.take(2)
+    let two = subj.source.take(2)
     var twoComplete = 0
     var twoSum = 0
     discard two.subscribe(
@@ -319,6 +321,15 @@ suite "observable collection tests":
     collection.remove(2)
     check(val.value == 3)
 
+  test "ObservableCollection.switch(Collection[Collection[T]] -> Collection[T])":
+    let collection = observableCollection[ObservableCollection[string]]()
+
+    let c = collection.source.switch().cache
+
+    check(toSeq(c.values()).len == 1)
+
+
+
   # test "ObservableCollection[T].filter(T -> Observable[bool]): ObservableCollection[T]":
   #   let comparator = behaviorSubject(2)
   #   let collection = observableCollection(@["one", "two", "three"])
@@ -357,7 +368,7 @@ suite "More observable tests":
   test "Merge":
     let outer = subject[Observable[int]]()
 
-    let merged = outer.merge()
+    let merged = outer.source.merge()
 
     var total = 0
     discard merged.subscribe(
@@ -396,7 +407,7 @@ suite "More observable tests":
   test "Switch":
     let outer = subject[Observable[int]]()
 
-    let switched = outer.switch()
+    let switched = outer.source.switch()
 
     var total = 0
     discard switched.subscribe(
@@ -434,7 +445,7 @@ suite "More observable tests":
 
 suite "Observable table":
   test "Basic table test":
-    let t = observableTable({"foo": 123, "bar": 321 }.newTable())
+    let t = observableTable({"foo": 123, "bar": 321 }.newOrderedTable())
     var c = false
     var r = false
     discard t.source.subscribe(
@@ -455,7 +466,7 @@ suite "Observable table":
 
   test "Observable[seq[T]] to TableSubject[T, Key]":
     let original = behaviorSubject(@["foo", "hello"])
-    let t = original.toObservableTable(
+    let t = original.source.toObservableTable(
       proc(key: string): int =
         key.len
     )
@@ -489,7 +500,7 @@ suite "Observable table":
     check(deleted[0][1] == 5)
 
   test "ObservableTable.get":
-    let t = observableTable({"foo": 123, "bar": 321 }.newTable())
+    let t = observableTable({"foo": 123, "bar": 321 }.newOrderedTable())
     let val = behaviorSubject(t.get("foo"))
 
     check(val.value.isSome())
@@ -503,7 +514,7 @@ suite "Observable table":
     check(val.value.get == 222)
 
   test "ObservableTable.filter":
-    let t = observableTable({ "one": 1, "two": 2, "three": 3, "four": 4, "five": 5 }.newTable())
+    let t = observableTable({ "one": 1, "two": 2, "three": 3, "four": 4, "five": 5 }.newOrderedTable())
     let filtered = t.filter(
       proc(key: string, val: int): bool =
         val < 3
@@ -584,7 +595,7 @@ suite "Observable table":
     let t = observableTable[string, int]()
     let key = behaviorSubject("one")
 
-    let x = behaviorSubject(t.get(key))
+    let x = behaviorSubject(t.get(key.source))
 
     check(x.value == none[int]())
 
