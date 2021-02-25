@@ -326,30 +326,40 @@ suite "observable collection tests":
 
     let c = collection.source.switch().cache
 
+    let col1 = observableCollection[string]()
+    collection.add(col1.source)
+
+    col1.add("foo")
+
     check(toSeq(c.values()).len == 1)
+    check(toSeq(c.values())[0] == "foo")
 
+    col1.add("bar")
+    check(toSeq(c.values()).len == 2)
+    check(toSeq(c.values())[0] == "foo")
+    check(toSeq(c.values())[1] == "bar")
 
+    let col2 = observableCollection[string]()
+    collection.add(col2.source)
+    check(toSeq(c.values()).len == 2)
+    check(toSeq(c.values())[0] == "foo")
+    check(toSeq(c.values())[1] == "bar")
 
-  # test "ObservableCollection[T].filter(T -> Observable[bool]): ObservableCollection[T]":
-  #   let comparator = behaviorSubject(2)
-  #   let collection = observableCollection(@["one", "two", "three"])
-  #   let filtered = collection.filter(
-  #     proc(val: string): Observable[bool] =
-  #       comparator.map(
-  #         proc(c: int): bool =
-  #           val.len > c
-  #       )
-  #   ).cached
+    col2.add("baz")
+    check(toSeq(c.values()).len == 3)
+    check(toSeq(c.values())[0] == "foo")
+    check(toSeq(c.values())[1] == "bar")
+    check(toSeq(c.values())[2] == "baz")
 
-  #   check(filtered.values.len == 3)
-  #   comparator <- 3
-  #   check(filtered.values.len == 1)
-  #   collection.add("four")
-  #   check(filtered.values.len == 2)
-  #   comparator <- 2
-  #   check(filtered.values.len == 4)
+    col1.remove("bar")
+    check(toSeq(c.values()).len == 2)
+    check(toSeq(c.values())[0] == "foo")
+    check(toSeq(c.values())[1] == "baz")
 
-
+    # TODO: Reenable this test when implemented
+    # collection.remove(col1.source)
+    # check(toSeq(c.values()).len == 1)
+    # check(toSeq(c.values())[0] == "baz")
 
 suite "More observable tests":
   test "Subject (PublishSubject) basics":

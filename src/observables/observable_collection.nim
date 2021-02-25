@@ -16,7 +16,7 @@ proc observableCollection*[T](values: seq[T] = @[]): CollectionSubject[T] =
       subscriber.onChanged(
         Change[T](
           kind: ChangeKind.InitialItems,
-          items: toSeq(subject.values)
+          items: toSeq(values)
         )
       )
       Subscription(
@@ -211,9 +211,9 @@ proc contains*[T](self: CollectionSubject[T], item: T): Observable[bool] =
     proc(subscriber: Subscriber[bool]): Subscription =
       let subscription = self.subscribe(
         proc(change: Change[T]): void =
-          subscriber.onNext(self.values.contains(item))
+          subscriber.onNext(self.items.contains(item))
       )
-      subscriber.onNext(self.values.contains(item))
+      subscriber.onNext(self.items.contains(item))
       # TODO: Handle subscriptions for observable collection
       Subscription(
         dispose: subscription.dispose
@@ -227,10 +227,10 @@ proc contains*[T](self: CollectionSubject[T], item: T): Observable[bool] =
 proc len*[T](self: CollectionSubject[T]): Observable[int] =
   createObservable(
     proc(subscriber: Subscriber[int]): Subscription =
-      subscriber.onNext(self.values.len())
+      subscriber.onNext(self.items.len())
       let subscription = self.subscribe(
         proc(change: Change[T]): void =
-          subscriber.onNext(self.values.len())
+          subscriber.onNext(self.items.len())
       )
       # TODO: Handle subscriptions for observable collection
       Subscription(

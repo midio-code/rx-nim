@@ -132,42 +132,72 @@ proc switch*[A](self: ObservableCollection[Observable[A]]): ObservableCollection
       )
   )
 
-proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): ObservableCollection[seq[A]] =
+proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): ObservableCollection[A] =
   ObservableCollection[A](
     onSubscribe: proc(subscriber: CollectionSubscriber[A]): Subscription =
       var values = initTable[int, A]()
       var subscriptions = initTable[int, Subscription]()
+      var collectionSizes: seq[int] = @[]
+      var indexOffsets = initTable[int, int]()
 
-      proc createSubscription(obs: Observable[A], forIndex: int): void =
+      proc offsetForIndex(index: int): int =
+        var ret = 0
+        for (i, size) in collectionSizes.pairs():
+          if i == index:
+            return ret
+          ret += size
+      proc incrementOffsetAfterIndex(index: int) =
+        for i in index..collectionSizes.len - 1:
+          collectionSizes[i] += 1
+      proc decrementOffsetAfterIndex(index: int) =
+        for i in index..collectionSizes.len - 1:
+          collectionSizes[i] -= 1
+
+      proc createSubscription(obs: ObservableCollection[A], forIndex: int): void =
+        collectionSizes.insert(0, forIndex)
         subscriptions[forIndex] = obs.subscribe(
-          proc(val: A): void =
-            if not values.hasKey(forIndex):
-              subscriber.onChanged(
-                Change[A](
+          proc(change: Change[A]): void =
+            case change.kind:
+              of ChangeKind.Added:
+                subscriber.onChanged(Change[A](
                   kind: ChangeKind.Added,
-                  newItem: val,
-                  addedAtIndex: forIndex
-                )
-              )
-            else:
-              subscriber.onChanged(
-                Change[A](
+                  newItem: change.newItem,
+                  addedAtIndex: offsetForIndex(forIndex) + change.addedAtIndex
+                ))
+                incrementOffsetAfterIndex(forIndex)
+              of ChangeKind.Removed:
+                subscriber.onChanged(Change[A](
+                  kind: ChangeKind.Removed,
+                  removedItem: change.removedItem,
+                  removedFromIndex: offsetForIndex(forIndex) + change.removedFromIndex
+                ))
+                decrementOffsetAfterIndex(forIndex)
+              of ChangeKind.Changed:
+                subscriber.onChanged(Change[A](
                   kind: ChangeKind.Changed,
-                  oldVal: values[forIndex],
-                  newVal: val,
-                  changedAtIndex: forIndex
-                )
-              )
-            values[forIndex] = val
+                  oldVal: change.oldVal,
+                  newVal: change.newVal,
+                  changedAtIndex: offsetForIndex(forIndex) + change.changedAtIndex
+                ))
+              of ChangeKind.InitialItems:
+                collectionSizes[forIndex] = change.items.len
+                for (index, item) in change.items.pairs():
+                  subscriber.onChanged(Change[A](
+                    kind: ChangeKind.Added,
+                    addedAtIndex: offsetForIndex(forIndex) + index,
+                    newItem: item
+                  ))
         )
 
-
       let subscription = self.subscribe(
-        proc(change: Change[Observable[A]]): void =
+        proc(change: Change[ObservableCollection[A]]): void =
           case change.kind:
             of ChangeKind.Added:
               createSubscription(change.newItem, change.addedAtIndex)
             of ChangeKind.Removed:
+              # TODO: Handle removal of collection in switched nested collections
+              raise newException(Exception, "Removal of collection in switched nested collection is currently not supported")
+              collectionSizes.delete(change.removedFromIndex)
               subscriber.onChanged(Change[A](
                 kind: ChangeKind.Removed,
                 removedItem: values[change.removedFromIndex]
