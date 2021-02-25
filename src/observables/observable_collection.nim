@@ -16,7 +16,7 @@ proc observableCollection*[T](values: seq[T] = @[]): CollectionSubject[T] =
       subscriber.onChanged(
         Change[T](
           kind: ChangeKind.InitialItems,
-          items: toSeq(values)
+          items: toSeq(toSeq(subject.values))
         )
       )
       Subscription(
