@@ -42,7 +42,9 @@ proc indexOf[T](self: DoublyLinkedList[T], item: T): int =
 proc add*[T](self: CollectionSubject[T], item: T): void =
   var index = self.items.len
   self.items.append(item)
-  for subscriber in self.subscribers:
+  # NOTE: Copying the subscriber list because the subscriber list might change while we're iiterating
+  let subs = self.subscribers
+  for subscriber in subs:
     subscriber.onChanged(
       Change[T](
         kind: ChangeKind.Added,
@@ -57,7 +59,9 @@ proc remove*[T](self: CollectionSubject[T], item: T): void =
     raise newException(Exception, "Tried to remove an item that was not in the collection.")
   self.items.remove(self.items.find(item))
 
-  for subscriber in self.subscribers:
+  # NOTE: Copying the subscriber list because the subscriber list might change while we're iiterating
+  let subs = self.subscribers
+  for subscriber in subs:
     subscriber.onChanged(
       Change[T](
         kind: ChangeKind.Removed,
@@ -82,7 +86,9 @@ proc removeWhere*[T](self: CollectionSubject[T], pred: (T,int) -> bool): bool =
 
   result = true
 
-  for subscriber in self.subscribers:
+  # NOTE: Copying the subscriber list because the subscriber list might change while we're iiterating
+  let subs = self.subscribers
+  for subscriber in subs:
     subscriber.onChanged(
       Change[T](
         kind: ChangeKind.Removed,
@@ -106,12 +112,19 @@ proc nodeAt[T](self: DoublyLinkedList[T], index: int): DoublyLinkedNode[T] =
     i += 1
 
 proc set*[T](self: CollectionSubject[T], index: int, newVal: T): void =
+  echo "Items:"
+  for item in self.values:
+    echo "   item: ", item
+  echo "New val: ", newVal
   if index >= self.items.len:
     raise newException(Exception, "Unable to set a value outside the range of the collection")
   let node = self.items.nodeAt(index)
   let oldVal = node.value
   node.value = newVal
-  for subscriber in self.subscribers:
+
+  # NOTE: Copying the subscriber list because the subscriber list might change while we're iiterating
+  let subs = self.subscribers
+  for subscriber in subs:
     subscriber.onChanged(
       Change[T](
         kind: ChangeKind.Changed,
@@ -297,25 +310,69 @@ template map*[T,R](self: CollectionSubject[T], mapper: (T) -> R): ObservableColl
 proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): ObservableCollection[T] =
   ObservableCollection[T](
     onSubscribe: proc(subscriber: CollectionSubscriber[T]): Subscription =
+      var gaps: seq[int] = @[] # NOTE: Indices that has been filtered out
+      proc calculateActualIndex(index: int): int =
+        var offset = 0
+        for g in gaps:
+          if g < index:
+            offset += 1
+        assert(index - offset >= 0)
+        index - offset
+
+      var collectionLen = 0
       let subscription = self.subscribe(
-        proc(newVal: T): void =
-          if predicate(newVal):
-            subscriber.onChanged(Change[T](
-              kind: ChangeKind.Added,
-              newItem: newVal
-            )),
-        proc(removedVal: T): void =
-          if predicate(removedVal):
-            subscriber.onChanged(Change[T](
-              kind: ChangeKind.Removed,
-              removedItem: removedVal
-            )),
-        proc(initialItems: seq[T]): void =
-          subscriber.onChanged(Change[T](
-            kind: ChangeKind.InitialItems,
-            items: initialItems.filter(predicate)
-          )),
-        # TODO: Support the remaining change kinds
+        proc(change: Change[T]): void =
+          case change.kind:
+            of ChangeKind.Added:
+              if predicate(change.newItem):
+                subscriber.onChanged(Change[T](
+                  kind: ChangeKind.Added,
+                  newItem: change.newItem,
+                  addedAtIndex: calculateActualIndex(change.addedAtIndex)
+                ))
+                collectionLen += 1
+              else:
+                gaps.add(change.addedAtIndex)
+            of ChangeKind.Removed:
+              if predicate(change.removedItem):
+                subscriber.onChanged(Change[T](
+                  kind: ChangeKind.Removed,
+                  removedItem: change.removedItem,
+                  removedFromIndex: calculateActualIndex(change.removedFromIndex)
+                ))
+                collectionLen -= 1
+            of ChangeKind.Changed:
+              if predicate(change.newVal):
+                if not predicate(change.oldVal):
+                  gaps.delete(gaps.find(change.changedAtIndex))
+                let actualIndex = calculateActualIndex(change.changedAtIndex)
+                if actualIndex == collectionLen:
+                  subscriber.onChanged(Change[T](
+                    kind: ChangeKind.Added,
+                    newItem: change.newVal,
+                    addedAtIndex: actualIndex
+                  ))
+                  collectionLen += 1
+                else:
+                  subscriber.onChanged(Change[T](
+                    kind: ChangeKind.Changed,
+                    oldVal: change.oldVal,
+                    newVal: change.newVal,
+                    changedAtIndex: actualIndex
+                  ))
+            of ChangeKind.InitialItems:
+              var actualIndex = 0
+              for (index, item) in change.items.pairs():
+                if predicate(item):
+                  subscriber.onChanged(Change[T](
+                    kind: ChangeKind.Added,
+                    newItem: item,
+                    addedAtIndex: actualIndex
+                  ))
+                  collectionLen += 1
+                  actualIndex += 1
+                else:
+                  gaps.add(index)
       )
       Subscription(
         dispose: subscription.dispose

@@ -159,13 +159,17 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
           proc(change: Change[A]): void =
             case change.kind:
               of ChangeKind.Added:
+                echo "Add for item: ", change.newItem
                 subscriber.onChanged(Change[A](
                   kind: ChangeKind.Added,
                   newItem: change.newItem,
                   addedAtIndex: offsetForIndex(forIndex) + change.addedAtIndex
                 ))
+                echo "Foo"
                 incrementOffsetAfterIndex(forIndex)
+                echo "Bar"
               of ChangeKind.Removed:
+                echo "Remove for item"
                 subscriber.onChanged(Change[A](
                   kind: ChangeKind.Removed,
                   removedItem: change.removedItem,
@@ -173,6 +177,7 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
                 ))
                 decrementOffsetAfterIndex(forIndex)
               of ChangeKind.Changed:
+                echo "Change for index: ", forIndex, " at position: ", change.changedAtIndex, " actual pos: ", (offsetForIndex(forIndex) + change.changedAtIndex)
                 subscriber.onChanged(Change[A](
                   kind: ChangeKind.Changed,
                   oldVal: change.oldVal,
@@ -180,6 +185,7 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
                   changedAtIndex: offsetForIndex(forIndex) + change.changedAtIndex
                 ))
               of ChangeKind.InitialItems:
+                echo "Initial for item"
                 collectionSizes[forIndex] = change.items.len
                 for (index, item) in change.items.pairs():
                   subscriber.onChanged(Change[A](
@@ -191,6 +197,7 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
 
       let subscription = self.subscribe(
         proc(change: Change[ObservableCollection[A]]): void =
+          echo "Foo"
           case change.kind:
             of ChangeKind.Added:
               createSubscription(change.newItem, change.addedAtIndex)
