@@ -1,4 +1,4 @@
-import options, sugar, tables, hashes
+import options, sugar, tables, hashes, lists
 
 type
   Error* = string
@@ -58,7 +58,7 @@ type
 
   CollectionSubject*[T] = ref object
     source*: ObservableCollection[T]
-    values*: seq[T]
+    items*: DoublyLinkedList[T]
     subscribers*: seq[CollectionSubscriber[T]]
 
 
@@ -73,6 +73,10 @@ type
     source*: ObservableTable[TKey, TValue]
     items*: OrderedTableRef[TKey, TValue]
     subscribers*: seq[TableSubscriber[TKey, TValue]]
+
+iterator values*[T](self: CollectionSubject[T]): T =
+  for item in self.items.items():
+    yield item
 
 proc `&`*(a,b: Subscription): Subscription =
   Subscription(

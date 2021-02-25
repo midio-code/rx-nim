@@ -146,11 +146,6 @@ proc next*[T](self: Subject[T], transformer: T -> T): void =
   ## This overload is useful if one wants to transform the current ``value`` using some mapping function.
   self.next(transformer(self.value))
 
-converter toObservable*[T](subject: Subject[T]): Observable[T] =
-  ## Gets the source observable from the subject, letts one treat a subject as it it was just a
-  ## normal observable.
-  subject.source
-
 # Operators
 proc map*[T,R](self: Observable[T], mapper: T -> R): Observable[R] =
   ## Returns a new ``Observable`` which maps values from the source ``Observable`` to a new type and value.
@@ -162,6 +157,9 @@ proc map*[T,R](self: Observable[T], mapper: T -> R): Observable[R] =
       )
 
   )
+
+template map*[T,R](self: Subject[T], mapper: T -> R): Observable[R] =
+  self.source.map(mapper)
 
 template extract*[T](self: Observable[T], prop: untyped): untyped =
   self.map(

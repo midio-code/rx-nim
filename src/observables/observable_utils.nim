@@ -132,20 +132,64 @@ proc switch*[A](self: ObservableCollection[Observable[A]]): ObservableCollection
       )
   )
 
-# proc switch*[A](collection: Observable[seq[Observable[A]]): Observable[seq[A]] =
-#   Observable[seq[A]](
-#     onSubscribe: proc(subscriber: Subscriber[seq[A]]): void =
-#       collection.subscribe(
-#         proc(items: seq[Observable[A]): void =
-#           var subscriptions: Subscription = @[]
-#           for item in items:
-#             subscriptions.add item.subscribe(
-#               proc(newVal: A): void =
+proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): ObservableCollection[seq[A]] =
+  ObservableCollection[A](
+    onSubscribe: proc(subscriber: CollectionSubscriber[A]): Subscription =
+      var values = initTable[int, A]()
+      var subscriptions = initTable[int, Subscription]()
 
-#             )
-#       )
-#   )
+      proc createSubscription(obs: Observable[A], forIndex: int): void =
+        subscriptions[forIndex] = obs.subscribe(
+          proc(val: A): void =
+            if not values.hasKey(forIndex):
+              subscriber.onChanged(
+                Change[A](
+                  kind: ChangeKind.Added,
+                  newItem: val,
+                  addedAtIndex: forIndex
+                )
+              )
+            else:
+              subscriber.onChanged(
+                Change[A](
+                  kind: ChangeKind.Changed,
+                  oldVal: values[forIndex],
+                  newVal: val,
+                  changedAtIndex: forIndex
+                )
+              )
+            values[forIndex] = val
+        )
 
+
+      let subscription = self.subscribe(
+        proc(change: Change[Observable[A]]): void =
+          case change.kind:
+            of ChangeKind.Added:
+              createSubscription(change.newItem, change.addedAtIndex)
+            of ChangeKind.Removed:
+              subscriber.onChanged(Change[A](
+                kind: ChangeKind.Removed,
+                removedItem: values[change.removedFromIndex]
+              ))
+              subscriptions[change.removedFromIndex].dispose()
+              subscriptions.del(change.removedFromIndex)
+              values.del(change.removedFromIndex)
+            of ChangeKind.Changed:
+              subscriptions[change.changedAtIndex].dispose()
+              createSubscription(change.newVal, change.addedAtIndex)
+            of ChangeKind.InitialItems:
+              for (index, item) in change.items.pairs():
+                createSubscription(item, index)
+      )
+      proc disposeAll(): void =
+        subscription.dispose()
+        for (index, sub) in subscriptions.pairs():
+          sub.dispose()
+      Subscription(
+        dispose: disposeAll
+      )
+  )
 
 
 proc `<-`*[T](subj: Subject[T], other: T): void =
