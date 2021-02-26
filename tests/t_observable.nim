@@ -393,6 +393,9 @@ suite "observable collection tests":
 
 
     collection.set(0, "foobar")
+    echo "Col:"
+    for item in collection.values:
+      echo "   val: ", item
     check(vals.values.len == 4)
     check(vals.values[0] == "foobar")
     check(vals.values[1] == "testing")

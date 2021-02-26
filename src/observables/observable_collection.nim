@@ -286,73 +286,38 @@ template map*[T,R](self: CollectionSubject[T], mapper: (T) -> R): ObservableColl
 proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): ObservableCollection[T] =
   ObservableCollection[T](
     onSubscribe: proc(subscriber: CollectionSubscriber[T]): Subscription =
-      var gaps = initSet[int]() # NOTE: Indices that has been filtered out
+      var items: seq[T] = @[]
       proc calculateActualIndex(index: int): int =
-        var offset = 0
-        for g in gaps.items():
-          if g < index:
-            offset += 1
-        assert(index - offset >= 0)
-        index - offset
+        echo "Items:"
+        for (i, item) in items.pairs():
+          echo "   item: ", item, " at: ", i
+        var i = 0
+        for (originalIndex, item) in items.pairs():
+          if originalIndex == index:
+             echo "Actual index for: ", originalIndex, " is: ", i
+             return i
+          if predicate(item):
+            i += 1
+        raise newException(Exception, "Failed to calculate index during filtering of observable collection")
 
-      proc incrementGapIndicesAboveIndex(index: int): void =
-        echo "About to increment gaps above index: ", index
-        for gap in gaps.items():
-          echo "    gap: ", gap
-        var decreasedGapIndices = initSet[int]()
-        for item in gaps.items():
-          if item > index:
-            decreasedGapIndices.incl(item)
-        for item in decreasedGapIndices.items():
-            gaps.excl(item)
-        for item in decreasedGapIndices.items():
-            gaps.incl(item + 1)
+      proc collectionLen(): int =
+        for (originalIndex, item) in items.pairs():
+          if predicate(item):
+            result += 1
 
-        echo "Incremented gaps above index: ", index
-        for gap in gaps.items():
-          echo "    gap: ", gap
-      proc decrementGapIndicesAboveIndex(index: int): void =
-        var decreasedGapIndices = initSet[int]()
-        for item in gaps.items():
-          if item > index:
-            decreasedGapIndices.incl(item)
-        for item in decreasedGapIndices.items():
-            gaps.excl(item)
-        for item in decreasedGapIndices.items():
-            gaps.incl(item - 1)
-
-        echo "Decremented gap indices"
-        for gap in gaps.items():
-          echo "    gap: ", gap
-
-      proc addGap(atIndex: int): void =
-        gaps.incl(atIndex)
-        echo "Added gap: ", atIndex
-
-      proc removeGap(fromIndex: int): void =
-        gaps.excl(fromIndex)
-        echo "Removed gap: ", fromIndex
-        echo "remaining"
-        for gap in gaps.items():
-          echo "    gap: ", gap
-
-      var collectionLen = 0
       let subscription = self.subscribe(
         proc(change: Change[T]): void =
           echo "\nChange kind: ", change.kind
           case change.kind:
             of ChangeKind.Added:
               echo "   added ", change.newItem, " at index: ", change.addedAtIndex
+              items.insert(change.newItem, change.addedAtIndex)
               if predicate(change.newItem):
                 subscriber.onChanged(Change[T](
                   kind: ChangeKind.Added,
                   newItem: change.newItem,
                   addedAtIndex: calculateActualIndex(change.addedAtIndex)
                 ))
-                collectionLen += 1
-              else:
-                addGap(change.addedAtIndex)
-              incrementGapIndicesAboveIndex(change.addedAtIndex)
             of ChangeKind.Removed:
               if predicate(change.removedItem):
                 subscriber.onChanged(Change[T](
@@ -360,48 +325,39 @@ proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): Observable
                   removedItem: change.removedItem,
                   removedFromIndex: calculateActualIndex(change.removedFromIndex)
                 ))
-                collectionLen -= 1
-                removeGap(change.removedFromIndex)
-              decrementGapIndicesAboveIndex(change.removedFromIndex)
+              items.delete(change.removedFromIndex)
             of ChangeKind.Changed:
-              if predicate(change.newVal):
-                echo "Gaps"
-                for gap in gaps.items:
-                  echo "   gap: ", gap
-                if not predicate(change.oldVal):
-                  removeGap(change.changedAtIndex)
-                let actualIndex = calculateActualIndex(change.changedAtIndex)
-                if actualIndex == collectionLen:
-                  subscriber.onChanged(Change[T](
-                    kind: ChangeKind.Added,
-                    newItem: change.newVal,
-                    addedAtIndex: actualIndex
-                  ))
-                  collectionLen += 1
-                elif actualIndex < collectionLen:
-                  subscriber.onChanged(Change[T](
-                    kind: ChangeKind.Changed,
-                    oldVal: change.oldVal,
-                    newVal: change.newVal,
-                    changedAtIndex: actualIndex
-                  ))
-                else:
-                  raise newException(Exception, "Actual index after filter was too high")
-              elif predicate(change.oldVal):
-                  addGap(change.changedAtIndex)
+              items[change.changedAtIndex] = change.newVal
+              if predicate(change.newVal) and not predicate(change.oldVal):
+                subscriber.onChanged(Change[T](
+                  kind: ChangeKind.Added,
+                  newItem: change.newVal,
+                  addedAtIndex: calculateActualIndex(change.changedAtIndex)
+                ))
+              elif not predicate(change.newVal) and predicate(change.oldVal):
+                subscriber.onChanged(Change[T](
+                  kind: ChangeKind.Removed,
+                  removedItem: change.oldVal,
+                  removedFromIndex: calculateActualIndex(change.changedAtIndex)
+                ))
+              elif predicate(change.newVal) and predicate(change.oldVal):
+                subscriber.onChanged(Change[T](
+                  kind: ChangeKind.Changed,
+                  oldVal: change.oldVal,
+                  newVal: change.newVal,
+                  changedAtIndex: calculateActualIndex(change.changedAtIndex)
+                ))
             of ChangeKind.InitialItems:
               var actualIndex = 0
               for (index, item) in change.items.pairs():
+                items.add(item)
                 if predicate(item):
                   subscriber.onChanged(Change[T](
                     kind: ChangeKind.Added,
                     newItem: item,
                     addedAtIndex: actualIndex
                   ))
-                  collectionLen += 1
                   actualIndex += 1
-                else:
-                  addGap(actualIndex)
       )
       Subscription(
         dispose: subscription.dispose
