@@ -184,8 +184,6 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
           return some(x.get.value)
 
       proc offsetForSublist(self: DoublyLinkedList[Sublist[A]], sublist: Sublist[A]): int =
-        for item in self.items:
-          echo "ITEM: ", item.id
         var index = 0
         var node = self.sublistNode(sublist)
         while not isNil(node.prev):
@@ -201,7 +199,6 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
         let sublist = initSublist(obs)
         values[sublist] = @[]
         let newNode = newDoublyLinkedNode(sublist)
-        echo "Creating subscription for index: ", atIndex
         if atIndex > 0:
           let nodeBeforeIndex = positionList.sublistNodeAtIndex(atIndex - 1).get
 
@@ -220,9 +217,6 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
           proc(change: Change[A]): void =
             case change.kind:
               of ChangeKind.Added:
-                echo "Add for item: ", change.newItem
-                echo "   offset is: ", positionList.offsetForSublist(sublist)
-                echo "   at index is: ", change.addedAtIndex
                 subscriber.onChanged(Change[A](
                   kind: ChangeKind.Added,
                   newItem: change.newItem,
@@ -231,7 +225,6 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
                 values[sublist].add(change.newItem)
                 sublist.length += 1
               of ChangeKind.Removed:
-                echo "Remove for item"
                 subscriber.onChanged(Change[A](
                   kind: ChangeKind.Removed,
                   removedItem: change.removedItem,
@@ -240,7 +233,6 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
                 values[sublist].delete(change.removedFromIndex)
                 sublist.length -= 1
               of ChangeKind.Changed:
-                echo "Change for index: ", positionList.sublistIndex(sublist), " at position: ", change.changedAtIndex, " actual pos: ", (positionList.offsetForSublist(sublist) + change.changedAtIndex)
                 subscriber.onChanged(Change[A](
                   kind: ChangeKind.Changed,
                   oldVal: change.oldVal,
@@ -249,9 +241,7 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
                 ))
                 values[sublist][change.changedAtIndex] = change.newVal
               of ChangeKind.InitialItems:
-                echo "Initial for item"
                 for (index, item) in change.items.pairs():
-                  echo "    initial index: ", index
                   subscriber.onChanged(Change[A](
                     kind: ChangeKind.Added,
                     addedAtIndex: positionList.offsetForSublist(sublist) + index,

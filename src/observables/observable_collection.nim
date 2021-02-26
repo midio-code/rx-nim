@@ -288,13 +288,9 @@ proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): Observable
     onSubscribe: proc(subscriber: CollectionSubscriber[T]): Subscription =
       var items: seq[T] = @[]
       proc calculateActualIndex(index: int): int =
-        echo "Items:"
-        for (i, item) in items.pairs():
-          echo "   item: ", item, " at: ", i
         var i = 0
         for (originalIndex, item) in items.pairs():
           if originalIndex == index:
-             echo "Actual index for: ", originalIndex, " is: ", i
              return i
           if predicate(item):
             i += 1
@@ -307,10 +303,8 @@ proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): Observable
 
       let subscription = self.subscribe(
         proc(change: Change[T]): void =
-          echo "\nChange kind: ", change.kind
           case change.kind:
             of ChangeKind.Added:
-              echo "   added ", change.newItem, " at index: ", change.addedAtIndex
               items.insert(change.newItem, change.addedAtIndex)
               if predicate(change.newItem):
                 subscriber.onChanged(Change[T](

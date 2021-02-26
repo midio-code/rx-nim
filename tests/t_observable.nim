@@ -339,11 +339,6 @@ suite "observable collection tests":
     check(vals.values.len == 1)
     check(vals.values[0] == "first")
 
-
-    echo "Col:"
-    for item in collection.values:
-      echo "   val: ", item
-
     collection.add("second")
     collection.add("bar")
     collection.add("last")
@@ -353,18 +348,10 @@ suite "observable collection tests":
     check(vals.values[1] == "second")
     check(vals.values[2] == "last")
 
-    echo "Col:"
-    for item in collection.values:
-      echo "   val: ", item
-
     collection.remove("second")
     check(vals.values.len == 2)
     check(vals.values[0] == "first")
     check(vals.values[1] == "last")
-
-    echo "Col:"
-    for item in collection.values:
-      echo "   val: ", item
 
     collection.insert("testing", 0)
     check(vals.values.len == 3)
@@ -372,19 +359,12 @@ suite "observable collection tests":
     check(vals.values[1] == "first")
     check(vals.values[2] == "last")
 
-    echo "Col:"
-    for item in collection.values:
-      echo "   val: ", item
-
     collection.insert("baz", 0)
     check(vals.values.len == 3)
     check(vals.values[0] == "testing")
     check(vals.values[1] == "first")
     check(vals.values[2] == "last")
 
-    echo "Col:"
-    for item in collection.values:
-      echo "   val: ", item
     collection.set(3, "setting")
     check(vals.values.len == 3)
     check(vals.values[0] == "testing")
@@ -393,9 +373,6 @@ suite "observable collection tests":
 
 
     collection.set(0, "foobar")
-    echo "Col:"
-    for item in collection.values:
-      echo "   val: ", item
     check(vals.values.len == 4)
     check(vals.values[0] == "foobar")
     check(vals.values[1] == "testing")
