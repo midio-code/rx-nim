@@ -295,32 +295,51 @@ proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): Observable
         assert(index - offset >= 0)
         index - offset
 
-      proc addGap(atIndex: int): void =
-        gaps.incl(atIndex)
-        echo "Added gap: ", atIndex
+      proc incrementGapIndicesAboveIndex(index: int): void =
+        echo "About to increment gaps above index: ", index
+        for gap in gaps.items():
+          echo "    gap: ", gap
+        var decreasedGapIndices = initSet[int]()
+        for item in gaps.items():
+          if item > index:
+            decreasedGapIndices.incl(item)
+        for item in decreasedGapIndices.items():
+            gaps.excl(item)
+        for item in decreasedGapIndices.items():
+            gaps.incl(item + 1)
+
+        echo "Incremented gaps above index: ", index
+        for gap in gaps.items():
+          echo "    gap: ", gap
       proc decrementGapIndicesAboveIndex(index: int): void =
         var decreasedGapIndices = initSet[int]()
         for item in gaps.items():
           if item > index:
-            decreasedGapIndices.incl(item - 1)
+            decreasedGapIndices.incl(item)
         for item in decreasedGapIndices.items():
-            gaps.excl(item + 1)
+            gaps.excl(item)
         for item in decreasedGapIndices.items():
-            gaps.incl(item)
+            gaps.incl(item - 1)
 
         echo "Decremented gap indices"
         for gap in gaps.items():
           echo "    gap: ", gap
 
+      proc addGap(atIndex: int): void =
+        gaps.incl(atIndex)
+        echo "Added gap: ", atIndex
+
       proc removeGap(fromIndex: int): void =
         gaps.excl(fromIndex)
-        decrementGapIndicesAboveIndex(fromIndex)
         echo "Removed gap: ", fromIndex
+        echo "remaining"
+        for gap in gaps.items():
+          echo "    gap: ", gap
 
       var collectionLen = 0
       let subscription = self.subscribe(
         proc(change: Change[T]): void =
-          echo "Change kind: ", change.kind
+          echo "\nChange kind: ", change.kind
           case change.kind:
             of ChangeKind.Added:
               echo "   added ", change.newItem, " at index: ", change.addedAtIndex
@@ -333,6 +352,7 @@ proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): Observable
                 collectionLen += 1
               else:
                 addGap(change.addedAtIndex)
+              incrementGapIndicesAboveIndex(change.addedAtIndex)
             of ChangeKind.Removed:
               if predicate(change.removedItem):
                 subscriber.onChanged(Change[T](
@@ -342,8 +362,7 @@ proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): Observable
                 ))
                 collectionLen -= 1
                 removeGap(change.removedFromIndex)
-              else:
-                decrementGapIndicesAboveIndex(change.removedFromIndex)
+              decrementGapIndicesAboveIndex(change.removedFromIndex)
             of ChangeKind.Changed:
               if predicate(change.newVal):
                 echo "Gaps"
@@ -368,6 +387,8 @@ proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): Observable
                   ))
                 else:
                   raise newException(Exception, "Actual index after filter was too high")
+              elif predicate(change.oldVal):
+                  addGap(change.changedAtIndex)
             of ChangeKind.InitialItems:
               var actualIndex = 0
               for (index, item) in change.items.pairs():
