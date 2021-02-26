@@ -165,9 +165,7 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
                   newItem: change.newItem,
                   addedAtIndex: offsetForIndex(forIndex) + change.addedAtIndex
                 ))
-                echo "Foo"
                 incrementOffsetAfterIndex(forIndex)
-                echo "Bar"
               of ChangeKind.Removed:
                 echo "Remove for item"
                 subscriber.onChanged(Change[A](
@@ -197,7 +195,6 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
 
       let subscription = self.subscribe(
         proc(change: Change[ObservableCollection[A]]): void =
-          echo "Foo"
           case change.kind:
             of ChangeKind.Added:
               createSubscription(change.newItem, change.addedAtIndex)

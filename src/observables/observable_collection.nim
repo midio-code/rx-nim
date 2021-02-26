@@ -16,7 +16,7 @@ proc observableCollection*[T](values: seq[T] = @[]): CollectionSubject[T] =
       subscriber.onChanged(
         Change[T](
           kind: ChangeKind.InitialItems,
-          items: toSeq(toSeq(subject.values))
+          items: toSeq(subject.items.items())
         )
       )
       Subscription(
@@ -160,7 +160,7 @@ proc cache*[T](self: ObservableCollection[T]): CollectionSubject[T] =
     proc(change: Change[T]): void =
       case change.kind:
         of ChangeKind.Added:
-          subject.add(change.newItem)
+          subject.insert(change.newItem, change.addedAtIndex)
         of ChangeKind.Removed:
           subject.remove(change.removedItem)
         of ChangeKind.Changed:

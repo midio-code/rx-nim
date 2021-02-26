@@ -351,10 +351,18 @@ suite "observable collection tests":
     check(toSeq(c.values())[1] == "bar")
     check(toSeq(c.values())[2] == "baz")
 
-    col1.remove("bar")
-    check(toSeq(c.values()).len == 2)
+    col1.add("biz")
+    check(toSeq(c.values()).len == 4)
     check(toSeq(c.values())[0] == "foo")
-    check(toSeq(c.values())[1] == "baz")
+    check(toSeq(c.values())[1] == "bar")
+    check(toSeq(c.values())[2] == "biz")
+    check(toSeq(c.values())[3] == "baz")
+
+    col1.remove("bar")
+    check(toSeq(c.values()).len == 3)
+    check(toSeq(c.values())[0] == "foo")
+    check(toSeq(c.values())[1] == "biz")
+    check(toSeq(c.values())[2] == "baz")
 
     # TODO: Reenable this test when implemented
     # collection.remove(col1.source)
