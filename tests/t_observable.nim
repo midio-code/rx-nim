@@ -321,6 +321,51 @@ suite "observable collection tests":
     collection.remove(2)
     check(val.value == 3)
 
+  test "ObservableCollection.filter":
+    let collection = observableCollection[string]()
+
+    let f = collection.source.filter(
+      proc(s: string): bool =
+        s.len > 3
+    )
+
+    let vals = f.cache
+    check(vals.values.len == 0)
+
+    collection.add("foo")
+    check(vals.values.len == 0)
+
+    collection.add("first")
+    check(vals.values.len == 1)
+    check(vals.values[0] == "first")
+
+    collection.add("second")
+    collection.add("bar")
+    collection.add("last")
+
+    check(vals.values.len == 3)
+    check(vals.values[0] == "first")
+    check(vals.values[1] == "second")
+    check(vals.values[2] == "last")
+
+    collection.remove("second")
+    check(vals.values.len == 2)
+    check(vals.values[0] == "first")
+    check(vals.values[1] == "last")
+
+    collection.insert("testing", 0)
+    check(vals.values.len == 3)
+    check(vals.values[0] == "testing")
+    check(vals.values[1] == "first")
+    check(vals.values[2] == "last")
+
+    collection.insert("baz", 0)
+    check(vals.values.len == 3)
+    check(vals.values[0] == "testing")
+    check(vals.values[1] == "first")
+    check(vals.values[2] == "last")
+
+
   test "ObservableCollection.switch(Collection[Collection[T]] -> Collection[T])":
     let collection = observableCollection[ObservableCollection[string]]()
 

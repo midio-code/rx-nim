@@ -329,13 +329,15 @@ proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): Observable
                     addedAtIndex: actualIndex
                   ))
                   collectionLen += 1
-                else:
+                elif actualIndex < collectionLen:
                   subscriber.onChanged(Change[T](
                     kind: ChangeKind.Changed,
                     oldVal: change.oldVal,
                     newVal: change.newVal,
                     changedAtIndex: actualIndex
                   ))
+                else:
+                  raise newException(Exception, "Actual index after filter was too high")
             of ChangeKind.InitialItems:
               var actualIndex = 0
               for (index, item) in change.items.pairs():
