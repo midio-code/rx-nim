@@ -365,6 +365,15 @@ suite "observable collection tests":
     check(vals.values[1] == "first")
     check(vals.values[2] == "last")
 
+    echo "Col:"
+    for item in collection.values:
+      echo "   val: ", item
+    collection.set(3, "setting")
+    check(vals.values.len == 3)
+    check(vals.values[0] == "testing")
+    check(vals.values[1] == "setting")
+    check(vals.values[2] == "last")
+
 
   test "ObservableCollection.switch(Collection[Collection[T]] -> Collection[T])":
     let collection = observableCollection[ObservableCollection[string]]()

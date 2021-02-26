@@ -1,4 +1,4 @@
-import sugar, options, sequtils, tables, hashes
+import sugar, options, sequtils, tables, hashes, sets
 import types
 import observables
 import utils
@@ -286,20 +286,44 @@ template map*[T,R](self: CollectionSubject[T], mapper: (T) -> R): ObservableColl
 proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): ObservableCollection[T] =
   ObservableCollection[T](
     onSubscribe: proc(subscriber: CollectionSubscriber[T]): Subscription =
-      var gaps: seq[int] = @[] # NOTE: Indices that has been filtered out
+      var gaps = initSet[int]() # NOTE: Indices that has been filtered out
       proc calculateActualIndex(index: int): int =
         var offset = 0
-        for g in gaps:
+        for g in gaps.items():
           if g < index:
             offset += 1
         assert(index - offset >= 0)
         index - offset
 
+      proc addGap(atIndex: int): void =
+        gaps.incl(atIndex)
+        echo "Added gap: ", atIndex
+      proc decrementGapIndicesAboveIndex(index: int): void =
+        var decreasedGapIndices = initSet[int]()
+        for item in gaps.items():
+          if item > index:
+            decreasedGapIndices.incl(item - 1)
+        for item in decreasedGapIndices.items():
+            gaps.excl(item + 1)
+        for item in decreasedGapIndices.items():
+            gaps.incl(item)
+
+        echo "Decremented gap indices"
+        for gap in gaps.items():
+          echo "    gap: ", gap
+
+      proc removeGap(fromIndex: int): void =
+        gaps.excl(fromIndex)
+        decrementGapIndicesAboveIndex(fromIndex)
+        echo "Removed gap: ", fromIndex
+
       var collectionLen = 0
       let subscription = self.subscribe(
         proc(change: Change[T]): void =
+          echo "Change kind: ", change.kind
           case change.kind:
             of ChangeKind.Added:
+              echo "   added ", change.newItem, " at index: ", change.addedAtIndex
               if predicate(change.newItem):
                 subscriber.onChanged(Change[T](
                   kind: ChangeKind.Added,
@@ -308,7 +332,7 @@ proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): Observable
                 ))
                 collectionLen += 1
               else:
-                gaps.add(change.addedAtIndex)
+                addGap(change.addedAtIndex)
             of ChangeKind.Removed:
               if predicate(change.removedItem):
                 subscriber.onChanged(Change[T](
@@ -317,10 +341,16 @@ proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): Observable
                   removedFromIndex: calculateActualIndex(change.removedFromIndex)
                 ))
                 collectionLen -= 1
+                removeGap(change.removedFromIndex)
+              else:
+                decrementGapIndicesAboveIndex(change.removedFromIndex)
             of ChangeKind.Changed:
               if predicate(change.newVal):
+                echo "Gaps"
+                for gap in gaps.items:
+                  echo "   gap: ", gap
                 if not predicate(change.oldVal):
-                  gaps.delete(gaps.find(change.changedAtIndex))
+                  removeGap(change.changedAtIndex)
                 let actualIndex = calculateActualIndex(change.changedAtIndex)
                 if actualIndex == collectionLen:
                   subscriber.onChanged(Change[T](
@@ -350,7 +380,7 @@ proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): Observable
                   collectionLen += 1
                   actualIndex += 1
                 else:
-                  gaps.add(index)
+                  addGap(actualIndex)
       )
       Subscription(
         dispose: subscription.dispose
