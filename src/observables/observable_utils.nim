@@ -199,6 +199,7 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
 
       proc createSubscription(obs: ObservableCollection[A], atIndex: int): void =
         let sublist = initSublist(obs)
+        values[sublist] = @[]
         let newNode = newDoublyLinkedNode(sublist)
         echo "Creating subscription for index: ", atIndex
         if atIndex > 0:
@@ -227,6 +228,7 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
                   newItem: change.newItem,
                   addedAtIndex: positionList.offsetForSublist(sublist) + change.addedAtIndex
                 ))
+                values[sublist].add(change.newItem)
                 sublist.length += 1
               of ChangeKind.Removed:
                 echo "Remove for item"
@@ -235,6 +237,7 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
                   removedItem: change.removedItem,
                   removedFromIndex: positionList.offsetForSublist(sublist) + change.removedFromIndex
                 ))
+                values[sublist].delete(change.removedFromIndex)
                 sublist.length -= 1
               of ChangeKind.Changed:
                 echo "Change for index: ", positionList.sublistIndex(sublist), " at position: ", change.changedAtIndex, " actual pos: ", (positionList.offsetForSublist(sublist) + change.changedAtIndex)
@@ -244,6 +247,7 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
                   newVal: change.newVal,
                   changedAtIndex: positionList.offsetForSublist(sublist) + change.changedAtIndex
                 ))
+                values[sublist][change.changedAtIndex] = change.newVal
               of ChangeKind.InitialItems:
                 echo "Initial for item"
                 for (index, item) in change.items.pairs():
@@ -253,6 +257,7 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
                     addedAtIndex: positionList.offsetForSublist(sublist) + index,
                     newItem: item
                   ))
+                  values[sublist].add(item)
                   sublist.length += 1
         )
 

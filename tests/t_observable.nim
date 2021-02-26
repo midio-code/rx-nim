@@ -379,10 +379,10 @@ suite "observable collection tests":
     check(c.values[3] == "firstInSecond")
     check(c.values[4] == "baz")
 
-    # TODO: Reenable this test when implemented
-    # collection.remove(col1.source)
-    # check(toSeq(c.values()).len == 1)
-    # check(toSeq(c.values())[0] == "baz")
+    collection.remove(col1.source)
+    check(c.values.len == 2)
+    check(c.values[0] == "firstInSecond")
+    check(c.values[1] == "baz")
 
 suite "More observable tests":
   test "Subject (PublishSubject) basics":
