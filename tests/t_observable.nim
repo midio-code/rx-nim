@@ -321,6 +321,65 @@ suite "observable collection tests":
     collection.remove(2)
     check(val.value == 3)
 
+  test "ObservableCollection.filter":
+    let collection = observableCollection[string]()
+
+    let f = collection.source.filter(
+      proc(s: string): bool =
+        s.len > 3
+    )
+
+    let vals = f.cache
+    check(vals.values.len == 0)
+
+    collection.add("foo")
+    check(vals.values.len == 0)
+
+    collection.add("first")
+    check(vals.values.len == 1)
+    check(vals.values[0] == "first")
+
+    collection.add("second")
+    collection.add("bar")
+    collection.add("last")
+
+    check(vals.values.len == 3)
+    check(vals.values[0] == "first")
+    check(vals.values[1] == "second")
+    check(vals.values[2] == "last")
+
+    collection.remove("second")
+    check(vals.values.len == 2)
+    check(vals.values[0] == "first")
+    check(vals.values[1] == "last")
+
+    collection.insert("testing", 0)
+    check(vals.values.len == 3)
+    check(vals.values[0] == "testing")
+    check(vals.values[1] == "first")
+    check(vals.values[2] == "last")
+
+    collection.insert("baz", 0)
+    check(vals.values.len == 3)
+    check(vals.values[0] == "testing")
+    check(vals.values[1] == "first")
+    check(vals.values[2] == "last")
+
+    collection.set(3, "setting")
+    check(vals.values.len == 3)
+    check(vals.values[0] == "testing")
+    check(vals.values[1] == "setting")
+    check(vals.values[2] == "last")
+
+
+    collection.set(0, "foobar")
+    check(vals.values.len == 4)
+    check(vals.values[0] == "foobar")
+    check(vals.values[1] == "testing")
+    check(vals.values[2] == "setting")
+    check(vals.values[3] == "last")
+
+
   test "ObservableCollection.switch(Collection[Collection[T]] -> Collection[T])":
     let collection = observableCollection[ObservableCollection[string]]()
 
@@ -331,35 +390,58 @@ suite "observable collection tests":
 
     col1.add("foo")
 
-    check(toSeq(c.values()).len == 1)
-    check(toSeq(c.values())[0] == "foo")
+    check(c.values.len == 1)
+    check(c.values[0] == "foo")
 
     col1.add("bar")
-    check(toSeq(c.values()).len == 2)
-    check(toSeq(c.values())[0] == "foo")
-    check(toSeq(c.values())[1] == "bar")
+    check(c.values.len == 2)
+    check(c.values[0] == "foo")
+    check(c.values[1] == "bar")
 
     let col2 = observableCollection[string]()
     collection.add(col2.source)
-    check(toSeq(c.values()).len == 2)
-    check(toSeq(c.values())[0] == "foo")
-    check(toSeq(c.values())[1] == "bar")
+    check(c.values.len == 2)
+    check(c.values[0] == "foo")
+    check(c.values[1] == "bar")
 
     col2.add("baz")
-    check(toSeq(c.values()).len == 3)
-    check(toSeq(c.values())[0] == "foo")
-    check(toSeq(c.values())[1] == "bar")
-    check(toSeq(c.values())[2] == "baz")
+    check(c.values.len == 3)
+    check(c.values[0] == "foo")
+    check(c.values[1] == "bar")
+    check(c.values[2] == "baz")
+
+    col1.add("biz")
+    check(c.values.len == 4)
+    check(c.values[0] == "foo")
+    check(c.values[1] == "bar")
+    check(c.values[2] == "biz")
+    check(c.values[3] == "baz")
 
     col1.remove("bar")
-    check(toSeq(c.values()).len == 2)
-    check(toSeq(c.values())[0] == "foo")
-    check(toSeq(c.values())[1] == "baz")
+    check(c.values.len == 3)
+    check(c.values[0] == "foo")
+    check(c.values[1] == "biz")
+    check(c.values[2] == "baz")
 
-    # TODO: Reenable this test when implemented
-    # collection.remove(col1.source)
-    # check(toSeq(c.values()).len == 1)
-    # check(toSeq(c.values())[0] == "baz")
+    col1.insert("first", 0)
+    check(c.values.len == 4)
+    check(c.values[0] == "first")
+    check(c.values[1] == "foo")
+    check(c.values[2] == "biz")
+    check(c.values[3] == "baz")
+
+    col2.insert("firstInSecond", 0)
+    check(c.values.len == 5)
+    check(c.values[0] == "first")
+    check(c.values[1] == "foo")
+    check(c.values[2] == "biz")
+    check(c.values[3] == "firstInSecond")
+    check(c.values[4] == "baz")
+
+    collection.remove(col1.source)
+    check(c.values.len == 2)
+    check(c.values[0] == "firstInSecond")
+    check(c.values[1] == "baz")
 
 suite "More observable tests":
   test "Subject (PublishSubject) basics":

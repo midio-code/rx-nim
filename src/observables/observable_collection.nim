@@ -1,14 +1,11 @@
-import sugar, options, sequtils, tables, hashes, lists
+import sugar, options, sequtils, tables, hashes, sets
 import types
 import observables
 import utils
 
 proc observableCollection*[T](values: seq[T] = @[]): CollectionSubject[T] =
-  var items = initDoublyLinkedList[T]()
-  for v in values:
-    items.append(v)
   let subject = CollectionSubject[T](
-    items: items
+    values: values
   )
   subject.source = ObservableCollection[T](
     onSubscribe: proc(subscriber: CollectionSubscriber[T]): Subscription =
@@ -16,33 +13,35 @@ proc observableCollection*[T](values: seq[T] = @[]): CollectionSubject[T] =
       subscriber.onChanged(
         Change[T](
           kind: ChangeKind.InitialItems,
-          items: toSeq(toSeq(subject.values))
+          items: subject.values
         )
       )
       Subscription(
         dispose: proc(): void =
-          subject.subscribers.delete(subject.subscribers.find(subscriber))
+          subject.subscribers.remove(subscriber)
       )
   )
   subject
 
-proc len[T](self: DoublyLinkedList[T]): int =
-  for item in self.items():
-    result += 1
-
-proc indexOf[T](self: DoublyLinkedList[T], item: T): int =
-  var index = 0
-  for i in self.items():
-    if i == item:
-      return index
-    index += 1
-  return -1
-
-
 proc add*[T](self: CollectionSubject[T], item: T): void =
-  var index = self.items.len
-  self.items.append(item)
-  for subscriber in self.subscribers:
+  let index = self.values.len
+  self.values.add(item)
+  # NOTE: Copying the subscriber list because the subscriber list might change while we're iiterating
+  let subs = self.subscribers
+  for subscriber in subs:
+    subscriber.onChanged(
+      Change[T](
+        kind: ChangeKind.Added,
+        newItem: item,
+        addedAtIndex: index
+      )
+    )
+
+proc insert*[T](self: CollectionSubject[T], item: T, index: int): void =
+  self.values.insert(item, index)
+  # NOTE: Copying the subscriber list because the subscriber list might change while we're iiterating
+  let subs = self.subscribers
+  for subscriber in subs:
     subscriber.onChanged(
       Change[T](
         kind: ChangeKind.Added,
@@ -52,12 +51,14 @@ proc add*[T](self: CollectionSubject[T], item: T): void =
     )
 
 proc remove*[T](self: CollectionSubject[T], item: T): void =
-  let index = self.items.indexOf(item)
-  if index >= self.items.len or index < 0:
+  let index = self.values.find(item)
+  if index >= self.values.len or index < 0:
     raise newException(Exception, "Tried to remove an item that was not in the collection.")
-  self.items.remove(self.items.find(item))
+  self.values.delete(index)
 
-  for subscriber in self.subscribers:
+  # NOTE: Copying the subscriber list because the subscriber list might change while we're iiterating
+  let subs = self.subscribers
+  for subscriber in subs:
     subscriber.onChanged(
       Change[T](
         kind: ChangeKind.Removed,
@@ -68,21 +69,20 @@ proc remove*[T](self: CollectionSubject[T], item: T): void =
 
 proc removeWhere*[T](self: CollectionSubject[T], pred: (T,int) -> bool): bool =
   var index = -1
-  var i = 0
-  var item: T
-  for node in self.items.nodes:
-    if pred(node.value, i):
+  for i, item in self.values.pairs():
+    if pred(item, i):
       index = i
-      item = node.value
-      self.items.remove(node)
       break
-    i += 1
-  if index < 0:
+  if index >= self.values.len or index < 0:
     return false
 
+  let item = self.values[index]
+  self.values.delete(index)
   result = true
 
-  for subscriber in self.subscribers:
+  # NOTE: Copying the subscriber list because the subscriber list might change while we're iiterating
+  let subs = self.subscribers
+  for subscriber in subs:
     subscriber.onChanged(
       Change[T](
         kind: ChangeKind.Removed,
@@ -91,27 +91,16 @@ proc removeWhere*[T](self: CollectionSubject[T], pred: (T,int) -> bool): bool =
       )
     )
 
-proc itemAt[T](self: DoublyLinkedList[T], index: int): T =
-  var i = 0
-  for item in self.items:
-    if i == index:
-      return item
-    i += 1
-
-proc nodeAt[T](self: DoublyLinkedList[T], index: int): DoublyLinkedNode[T] =
-  var i = 0
-  for item in self.nodes:
-    if i == index:
-      return item
-    i += 1
 
 proc set*[T](self: CollectionSubject[T], index: int, newVal: T): void =
-  if index >= self.items.len:
+  if index >= self.values.len:
     raise newException(Exception, "Unable to set a value outside the range of the collection")
-  let node = self.items.nodeAt(index)
-  let oldVal = node.value
-  node.value = newVal
-  for subscriber in self.subscribers:
+  let oldVal = self.values[index]
+  self.values[index] = newVal
+
+  # NOTE: Copying the subscriber list because the subscriber list might change while we're iiterating
+  let subs = self.subscribers
+  for subscriber in subs:
     subscriber.onChanged(
       Change[T](
         kind: ChangeKind.Changed,
@@ -147,7 +136,7 @@ proc cache*[T](self: ObservableCollection[T]): CollectionSubject[T] =
     proc(change: Change[T]): void =
       case change.kind:
         of ChangeKind.Added:
-          subject.add(change.newItem)
+          subject.insert(change.newItem, change.addedAtIndex)
         of ChangeKind.Removed:
           subject.remove(change.removedItem)
         of ChangeKind.Changed:
@@ -211,9 +200,9 @@ proc contains*[T](self: CollectionSubject[T], item: T): Observable[bool] =
     proc(subscriber: Subscriber[bool]): Subscription =
       let subscription = self.subscribe(
         proc(change: Change[T]): void =
-          subscriber.onNext(self.items.contains(item))
+          subscriber.onNext(item in self.values)
       )
-      subscriber.onNext(self.items.contains(item))
+      subscriber.onNext(item in self.values)
       # TODO: Handle subscriptions for observable collection
       Subscription(
         dispose: subscription.dispose
@@ -227,10 +216,10 @@ proc contains*[T](self: CollectionSubject[T], item: T): Observable[bool] =
 proc len*[T](self: CollectionSubject[T]): Observable[int] =
   createObservable(
     proc(subscriber: Subscriber[int]): Subscription =
-      subscriber.onNext(self.items.len())
+      subscriber.onNext(self.values.len())
       let subscription = self.subscribe(
         proc(change: Change[T]): void =
-          subscriber.onNext(self.items.len())
+          subscriber.onNext(self.values.len())
       )
       # TODO: Handle subscriptions for observable collection
       Subscription(
@@ -297,25 +286,72 @@ template map*[T,R](self: CollectionSubject[T], mapper: (T) -> R): ObservableColl
 proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): ObservableCollection[T] =
   ObservableCollection[T](
     onSubscribe: proc(subscriber: CollectionSubscriber[T]): Subscription =
+      var items: seq[T] = @[]
+      proc calculateActualIndex(index: int): int =
+        var i = 0
+        for (originalIndex, item) in items.pairs():
+          if originalIndex == index:
+             return i
+          if predicate(item):
+            i += 1
+        raise newException(Exception, "Failed to calculate index during filtering of observable collection")
+
+      proc collectionLen(): int =
+        for (originalIndex, item) in items.pairs():
+          if predicate(item):
+            result += 1
+
       let subscription = self.subscribe(
-        proc(newVal: T): void =
-          if predicate(newVal):
-            subscriber.onChanged(Change[T](
-              kind: ChangeKind.Added,
-              newItem: newVal
-            )),
-        proc(removedVal: T): void =
-          if predicate(removedVal):
-            subscriber.onChanged(Change[T](
-              kind: ChangeKind.Removed,
-              removedItem: removedVal
-            )),
-        proc(initialItems: seq[T]): void =
-          subscriber.onChanged(Change[T](
-            kind: ChangeKind.InitialItems,
-            items: initialItems.filter(predicate)
-          )),
-        # TODO: Support the remaining change kinds
+        proc(change: Change[T]): void =
+          case change.kind:
+            of ChangeKind.Added:
+              items.insert(change.newItem, change.addedAtIndex)
+              if predicate(change.newItem):
+                subscriber.onChanged(Change[T](
+                  kind: ChangeKind.Added,
+                  newItem: change.newItem,
+                  addedAtIndex: calculateActualIndex(change.addedAtIndex)
+                ))
+            of ChangeKind.Removed:
+              if predicate(change.removedItem):
+                subscriber.onChanged(Change[T](
+                  kind: ChangeKind.Removed,
+                  removedItem: change.removedItem,
+                  removedFromIndex: calculateActualIndex(change.removedFromIndex)
+                ))
+              items.delete(change.removedFromIndex)
+            of ChangeKind.Changed:
+              items[change.changedAtIndex] = change.newVal
+              if predicate(change.newVal) and not predicate(change.oldVal):
+                subscriber.onChanged(Change[T](
+                  kind: ChangeKind.Added,
+                  newItem: change.newVal,
+                  addedAtIndex: calculateActualIndex(change.changedAtIndex)
+                ))
+              elif not predicate(change.newVal) and predicate(change.oldVal):
+                subscriber.onChanged(Change[T](
+                  kind: ChangeKind.Removed,
+                  removedItem: change.oldVal,
+                  removedFromIndex: calculateActualIndex(change.changedAtIndex)
+                ))
+              elif predicate(change.newVal) and predicate(change.oldVal):
+                subscriber.onChanged(Change[T](
+                  kind: ChangeKind.Changed,
+                  oldVal: change.oldVal,
+                  newVal: change.newVal,
+                  changedAtIndex: calculateActualIndex(change.changedAtIndex)
+                ))
+            of ChangeKind.InitialItems:
+              var actualIndex = 0
+              for (index, item) in change.items.pairs():
+                items.add(item)
+                if predicate(item):
+                  subscriber.onChanged(Change[T](
+                    kind: ChangeKind.Added,
+                    newItem: item,
+                    addedAtIndex: actualIndex
+                  ))
+                  actualIndex += 1
       )
       Subscription(
         dispose: subscription.dispose
@@ -328,12 +364,12 @@ template filter*[T](self: CollectionSubject[T], predicate: T -> bool): Observabl
 proc toObservable*[T](self: CollectionSubject[T]): Observable[seq[T]] =
   createObservable(
     proc(subscriber: Subscriber[seq[T]]): Subscription =
-      subscriber.onNext(toSeq(self.values))
+      subscriber.onNext(self.values)
       let subscription = self.subscribe(
         proc(added: T): void =
-          subscriber.onNext(toSeq(self.values)),
+          subscriber.onNext(self.values),
         proc(removed: T): void =
-          subscriber.onNext(toSeq(self.values)),
+          subscriber.onNext(self.values),
         proc(initialItems: seq[T]): void =
           subscriber.onNext(initialItems)
       )
@@ -363,34 +399,34 @@ proc toObservable*[T](self: ObservableCollection[T]): Observable[seq[T]] =
   )
 
 # TODO: Find a better name for this
-# proc observableCollection*[T](source: ObservableCollection[T]): CollectionSubject[T] =
-#   ## Wraps an ObservableCollection[T] in a CollectionSubject[T] so that its items are
-#   ## synchronously available.
-#   let subject = CollectionSubject[T]()
-#   subject.source = ObservableCollection[T](
-#     onSubscribe: proc(subscriber: CollectionSubscriber[T]): Subscription =
-#       let subscription = source.subscribe(
-#         proc(change: Change[T]): void =
-#           case change.kind:
-#             of ChangeKind.Added:
-#               subject.add(change.newItem)
-#             of ChangeKind.Removed:
-#               subject.remove(change.removedItem)
-#             of ChangeKind.InitialItems:
-#               subject.values = change.items
-#               subscriber.onChanged(
-#                 change
-#               )
-#             else:
-#               # TODO: Support rest of changes
-#               discard
-#       )
+proc observableCollection*[T](source: ObservableCollection[T]): CollectionSubject[T] =
+  ## Wraps an ObservableCollection[T] in a CollectionSubject[T] so that its items are
+  ## synchronously available.
+  let subject = CollectionSubject[T]()
+  subject.source = ObservableCollection[T](
+    onSubscribe: proc(subscriber: CollectionSubscriber[T]): Subscription =
+      let subscription = source.subscribe(
+        proc(change: Change[T]): void =
+          case change.kind:
+            of ChangeKind.Added:
+              subject.add(change.newItem)
+            of ChangeKind.Removed:
+              subject.remove(change.removedItem)
+            of ChangeKind.InitialItems:
+              subject.values = change.items
+              subscriber.onChanged(
+                change
+              )
+            else:
+              # TODO: Support rest of changes
+              discard
+      )
 
-#       Subscription(
-#         dispose: subscription.dispose
-#       )
-#   )
-#   subject
+      Subscription(
+        dispose: subscription.dispose
+      )
+  )
+  subject
 
 
 proc combineLatest*[A,B,R](a: ObservableCollection[A], b: ObservableCollection[B], mapper: (A,B) -> R): ObservableCollection[R] =

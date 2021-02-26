@@ -157,7 +157,6 @@ proc map*[T,R](self: Observable[T], mapper: T -> R): Observable[R] =
       )
 
   )
-
 template map*[T,R](self: Subject[T], mapper: T -> R): Observable[R] =
   self.source.map(mapper)
 
