@@ -91,6 +91,8 @@ proc removeWhere*[T](self: CollectionSubject[T], pred: (T,int) -> bool): bool =
       )
     )
 
+proc clear*[T](self: CollectionSubject[T]): void =
+  discard self.removeWhere((e: T, i: int) => true)
 
 proc set*[T](self: CollectionSubject[T], index: int, newVal: T): void =
   if index >= self.values.len:
