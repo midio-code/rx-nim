@@ -259,15 +259,16 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
             of ChangeKind.Removed:
               # TODO: Handle removal of collection in switched nested collections
               let sublist = positionList.sublistAtIndex(change.removedFromIndex).get
-              for (index, value) in values[sublist].pairs():
-                subscriber.onChanged(Change[A](
-                  kind: ChangeKind.Removed,
-                  removedItem: value,
-                  removedFromIndex: positionList.offsetForSublist(sublist) + index
-                ))
-              values.del(sublist)
-              subscriptions[sublist].dispose()
-              subscriptions.del(sublist)
+              if values.hasKey(sublist):
+                for (index, value) in values[sublist].pairs():
+                  subscriber.onChanged(Change[A](
+                    kind: ChangeKind.Removed,
+                    removedItem: value,
+                    removedFromIndex: positionList.offsetForSublist(sublist) + index
+                  ))
+                values.del(sublist)
+                subscriptions[sublist].dispose()
+                subscriptions.del(sublist)
             of ChangeKind.Changed:
               let sublist = positionList.sublistAtIndex(change.changedAtIndex).get
               subscriptions[sublist].dispose()
