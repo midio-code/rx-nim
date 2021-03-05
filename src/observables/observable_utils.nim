@@ -137,6 +137,8 @@ type Sublist[A] = ref object
   id: int
   obs: ObservableCollection[A]
   length: int
+proc `$`(self: Sublist): string =
+  &"Sublist({self.id}, {self.length})"
 proc hash*[A](self: Sublist[A]): Hash =
   self.id.hash
 proc `==`*[A](self: Sublist[A], other: Sublist[A]): bool =
@@ -230,7 +232,7 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
                   removedItem: change.removedItem,
                   removedFromIndex: positionList.offsetForSublist(sublist) + change.removedFromIndex
                 ))
-                values[sublist].delete(change.removedFromIndex)
+                values[sublist].delete(values[sublist].find(change.removedItem))
                 sublist.length -= 1
               of ChangeKind.Changed:
                 subscriber.onChanged(Change[A](
@@ -258,17 +260,18 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
               createSubscription(change.newItem, change.addedAtIndex)
             of ChangeKind.Removed:
               # TODO: Handle removal of collection in switched nested collections
-              let sublist = positionList.sublistAtIndex(change.removedFromIndex).get
-              if values.hasKey(sublist):
-                for (index, value) in values[sublist].pairs():
-                  subscriber.onChanged(Change[A](
-                    kind: ChangeKind.Removed,
-                    removedItem: value,
-                    removedFromIndex: positionList.offsetForSublist(sublist) + index
-                  ))
-                values.del(sublist)
-                subscriptions[sublist].dispose()
-                subscriptions.del(sublist)
+              let node = positionList.sublistNodeAtIndex(change.removedFromIndex).get
+              let sublist = node.value
+              for (index, value) in values[sublist].pairs():
+                subscriber.onChanged(Change[A](
+                  kind: ChangeKind.Removed,
+                  removedItem: value,
+                  removedFromIndex: positionList.offsetForSublist(sublist)
+                ))
+              values.del(sublist)
+              positionList.remove(node)
+              subscriptions[sublist].dispose()
+              subscriptions.del(sublist)
             of ChangeKind.Changed:
               let sublist = positionList.sublistAtIndex(change.changedAtIndex).get
               subscriptions[sublist].dispose()

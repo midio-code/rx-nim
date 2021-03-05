@@ -270,7 +270,7 @@ proc map*[T,R](self: ObservableCollection[T], mapper: T -> R): ObservableCollect
               ))
             of ChangeKind.InitialItems:
               var mappedItems: seq[R] = @[]
-              for i in change.items:
+              for index, i in change.items.pairs():
                 let mappedItem = mapper(i)
                 mapped[i] = mappedItem
                 mappedItems.add(mappedItem)

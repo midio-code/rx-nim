@@ -438,10 +438,21 @@ suite "observable collection tests":
     check(c.values[3] == "firstInSecond")
     check(c.values[4] == "baz")
 
+    let behaviorSubj = c.toObservable.map(
+      proc(x: seq[string]): seq[string] =
+        for y in x:
+          result.add(y & "-foo")
+    ).behaviorSubject
+
     collection.remove(col1.source)
     check(c.values.len == 2)
     check(c.values[0] == "firstInSecond")
     check(c.values[1] == "baz")
+
+    check(behaviorSubj.value.len == 2)
+    check(behaviorSubj.value[0] == "firstInSecond-foo")
+    check(behaviorSubj.value[1] == "baz-foo")
+
 
 suite "More observable tests":
   test "Subject (PublishSubject) basics":
