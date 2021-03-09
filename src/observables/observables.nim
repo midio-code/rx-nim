@@ -35,7 +35,7 @@ proc subscribe*[T](self: Subject[T], onNext: (T) -> void): Subscription =
   assert(not isNil(self))
   self.source.subscribe(onNext)
 
-proc notifySubscribers[T](self: Subject[T]): void =
+proc notifySubscribers*[T](self: Subject[T]): void =
   var disposedSubscribers: seq[Subscriber[T]] = @[]
   for subscriber in self.subscribers:
     if subscriber.disposed:

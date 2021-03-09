@@ -37,6 +37,20 @@ proc add*[T](self: CollectionSubject[T], item: T): void =
       )
     )
 
+proc pop*[T](self: CollectionSubject[T]): T =
+  let index = self.values.len - 1
+  let ret = self.values.pop()
+  let subs = self.subscribers
+  for subscriber in subs:
+    subscriber.onChanged(
+      Change[T](
+        kind: ChangeKind.Removed,
+        removedItem: ret,
+        removedFromIndex: index
+      )
+    )
+  return ret
+
 proc insert*[T](self: CollectionSubject[T], item: T, index: int): void =
   self.values.insert(item, index)
   # NOTE: Copying the subscriber list because the subscriber list might change while we're iiterating

@@ -359,3 +359,9 @@ template castTo*[T](self: ObservableCollection[T], caster: untyped): untyped =
     proc(x: T): auto =
       result = caster(x)
   )
+
+proc `or`*(self: Observable[bool], other: Observable[bool]): Observable[bool] =
+  self.combineLatest(other, (a: bool, b: bool) => a or b)
+
+proc `and`*(self: Observable[bool], other: Observable[bool]): Observable[bool] =
+  self.combineLatest(other, (a: bool, b: bool) => a and b)
