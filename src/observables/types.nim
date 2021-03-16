@@ -1,4 +1,4 @@
-import options, sugar, tables, hashes
+import options, sugar, tables, hashes, typetraits
 
 type
   Error* = string
@@ -81,3 +81,9 @@ proc `&`*(a,b: Subscription): Subscription =
         a.dispose()
         b.dispose()
   )
+
+proc `$`*[T](a: Observable[T]): string =
+  echo "Observable of ", name(T)
+
+proc `$`*[T](a: Subject[T]): string =
+  echo "Subject of ", name(T)

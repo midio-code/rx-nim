@@ -81,6 +81,23 @@ proc remove*[T](self: CollectionSubject[T], item: T): void =
       )
     )
 
+proc removeAt*[T](self: CollectionSubject[T], index: int): void =
+  if index >= self.values.len or index < 0:
+    raise newException(Exception, "Tried to remove an item that was not in the collection.")
+  let item = self.values[index]
+  self.values.delete(index)
+
+  # NOTE: Copying the subscriber list because the subscriber list might change while we're iiterating
+  let subs = self.subscribers
+  for subscriber in subs:
+    subscriber.onChanged(
+      Change[T](
+        kind: ChangeKind.Removed,
+        removedItem: item,
+        removedFromIndex: index
+      )
+    )
+
 proc removeWhere*[T](self: CollectionSubject[T], pred: (T,int) -> bool): bool =
   var index = -1
   for i, item in self.values.pairs():

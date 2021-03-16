@@ -4,10 +4,6 @@ import types
 import utils
 import strformat
 
-proc `$`*[T](self: Observable[T]): string =
-  let c = self.behaviorSubject
-  &"Observable: {c.value}"
-
 proc toSubscriber[T](onNext: (T) -> void): Subscriber[T] =
   Subscriber[T](onNext: onNext, onCompleted: none[() -> void](), onError: none[(Error) -> void]())
 
