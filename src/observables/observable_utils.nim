@@ -211,6 +211,8 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
         let listLen = positionList.length
 
         if atIndex == 0:
+          if atIndex < listLen:
+            newNode.next = positionList.sublistNodeAtIndex(atIndex).get
           positionList.head = newNode
         elif atIndex == listLen:
           positionList.tail = newNode
