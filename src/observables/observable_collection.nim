@@ -285,7 +285,6 @@ proc map*[T,R](self: ObservableCollection[T], mapper: T -> R): ObservableCollect
               ))
             of ChangeKind.Removed:
               let mappedItem = mapped[change.removedItem]
-              mapped.del(change.removedItem)
               subscriber.onChanged(Change[R](
                 kind: ChangeKind.Removed,
                 removedItem: mappedItem,

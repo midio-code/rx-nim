@@ -166,6 +166,8 @@ template extract*[T](self: Observable[T], prop: untyped): untyped =
     proc(val: T): auto =
       val.`prop`
   )
+template extract*[T](self: Subject[T], prop: untyped): untyped =
+  self.source.extract(prop)
 
 proc filter*[T](self: Observable[T], predicate: (T) -> bool): Observable[T] =
   Observable[T](

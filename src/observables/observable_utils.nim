@@ -51,6 +51,9 @@ proc unwrap*[T](self: ObservableCollection[Option[T]]): ObservableCollection[T] 
       x.get()
   )
 
+proc len*[T](self: Observable[seq[T]]): Observable[int] =
+  self.map((x: seq[T]) => x.len)
+
 
 proc switch*[A](observables: Observable[ObservableCollection[A]]): ObservableCollection[A] =
   ## Subscribes to each observable as they arrive after first unsubscribing from the second,
@@ -117,8 +120,9 @@ proc switch*[A](self: ObservableCollection[Observable[A]]): ObservableCollection
               subscriptions.del(change.removedFromIndex)
               values.del(change.removedFromIndex)
             of ChangeKind.Changed:
-              subscriptions[change.changedAtIndex].dispose()
-              createSubscription(change.newVal, change.addedAtIndex)
+              if change.changedAtIndex in subscriptions:
+                subscriptions[change.changedAtIndex].dispose()
+              createSubscription(change.newVal, change.changedAtIndex)
             of ChangeKind.InitialItems:
               for (index, item) in change.items.pairs():
                 createSubscription(item, index)
@@ -322,6 +326,13 @@ proc `&`*(a: Observable[string], b: string): Observable[string] =
   a.map(
     proc(a: string): string = a & b
   )
+
+proc `[]`*(a: Observable[string], index: int): Observable[string] =
+  a.map(
+    proc(a: string): string = $a[index]
+  )
+template `[]`*(a: Subject[string], index: int): Observable[string] =
+  a.source[index]
 
 proc `&`*[T](a: Observable[seq[T]], b: Observable[seq[T]]): Observable[seq[T]] =
   a.combineLatest(
