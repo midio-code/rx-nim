@@ -320,7 +320,7 @@ template map*[T,R](self: CollectionSubject[T], mapper: (T) -> R): ObservableColl
 proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): ObservableCollection[T] =
   ObservableCollection[T](
     onSubscribe: proc(subscriber: CollectionSubscriber[T]): Subscription =
-      var items: seq[T] = @[]
+      var items: OrderedTable[int, T] = initOrderedTable[int, T]()
       proc calculateActualIndex(index: int): int =
         var i = 0
         for (originalIndex, item) in items.pairs():
@@ -339,7 +339,7 @@ proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): Observable
         proc(change: Change[T]): void =
           case change.kind:
             of ChangeKind.Added:
-              items.insert(change.newItem, change.addedAtIndex)
+              items[change.addedAtIndex] = change.newItem
               if predicate(change.newItem):
                 subscriber.onChanged(Change[T](
                   kind: ChangeKind.Added,
@@ -353,7 +353,7 @@ proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): Observable
                   removedItem: change.removedItem,
                   removedFromIndex: calculateActualIndex(change.removedFromIndex)
                 ))
-              items.delete(change.removedFromIndex)
+              items.del(change.removedFromIndex)
             of ChangeKind.Changed:
               items[change.changedAtIndex] = change.newVal
               if predicate(change.newVal) and not predicate(change.oldVal):
@@ -378,7 +378,7 @@ proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): Observable
             of ChangeKind.InitialItems:
               var actualIndex = 0
               for (index, item) in change.items.pairs():
-                items.add(item)
+                items[index] = item
                 if predicate(item):
                   subscriber.onChanged(Change[T](
                     kind: ChangeKind.Added,

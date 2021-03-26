@@ -53,6 +53,8 @@ proc unwrap*[T](self: ObservableCollection[Option[T]]): ObservableCollection[T] 
 
 proc len*[T](self: Observable[seq[T]]): Observable[int] =
   self.map((x: seq[T]) => x.len)
+template len*[T](self: Subject[seq[T]]): Observable[int] =
+  self.source.len
 
 
 proc switch*[A](observables: Observable[ObservableCollection[A]]): ObservableCollection[A] =
