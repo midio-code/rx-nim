@@ -88,9 +88,10 @@ proc switch*[A](self: ObservableCollection[Observable[A]]): ObservableCollection
         var res = 0
         for i, v in values:
           if i == index:
-            return i
+            return res
           if v.isSome:
             res += 1
+        raise newException(Exception, "Failed to calculate index in collection.switch(observable)")
 
 
       proc createSubscription(obs: Observable[A], forIndex: int): void =
