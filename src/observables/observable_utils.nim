@@ -84,6 +84,15 @@ proc switch*[A](self: ObservableCollection[Observable[A]]): ObservableCollection
       var values: seq[Option[A]] = @[]
       var subscriptions: seq[Subscription] = @[]
 
+      proc actualIndex(index: int): int =
+        var res = 0
+        for i, v in values:
+          if i == index:
+            return i
+          if v.isSome:
+            res += 1
+
+
       proc createSubscription(obs: Observable[A], forIndex: int): void =
         values.insert(none[A](), forIndex)
         subscriptions.insert(obs.subscribe(
@@ -93,7 +102,7 @@ proc switch*[A](self: ObservableCollection[Observable[A]]): ObservableCollection
                 Change[A](
                   kind: ChangeKind.Added,
                   newItem: val,
-                  addedAtIndex: forIndex
+                  addedAtIndex: actualIndex(forIndex)
                 )
               )
             else:
@@ -102,7 +111,7 @@ proc switch*[A](self: ObservableCollection[Observable[A]]): ObservableCollection
                   kind: ChangeKind.Changed,
                   oldVal: values[forIndex].get,
                   newVal: val,
-                  changedAtIndex: forIndex
+                  changedAtIndex: actualIndex(forIndex)
                 )
               )
 
