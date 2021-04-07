@@ -1,4 +1,4 @@
-import options, sugar, tables, hashes, lists
+import options, sugar, tables, hashes, lists, strformat
 import ./types
 import ./observables
 
@@ -81,13 +81,15 @@ proc switch*[A](observables: Observable[ObservableCollection[A]]): ObservableCol
 proc switch*[A](self: ObservableCollection[Observable[A]]): ObservableCollection[A] =
   ObservableCollection[A](
     onSubscribe: proc(subscriber: CollectionSubscriber[A]): Subscription =
-      var values = initTable[int, A]()
-      var subscriptions = initTable[int, Subscription]()
+      var values: seq[A] = @[]
+      var subscriptions: seq[Subscription] = @[]
 
       proc createSubscription(obs: Observable[A], forIndex: int): void =
-        subscriptions[forIndex] = obs.subscribe(
+        var hasValue = false
+        subscriptions.insert(obs.subscribe(
           proc(val: A): void =
-            if not values.hasKey(forIndex):
+            if not hasValue:
+              hasValue = true
               subscriber.onChanged(
                 Change[A](
                   kind: ChangeKind.Added,
@@ -104,8 +106,8 @@ proc switch*[A](self: ObservableCollection[Observable[A]]): ObservableCollection
                   changedAtIndex: forIndex
                 )
               )
-            values[forIndex] = val
-        )
+            values.insert(val, forIndex)
+        ), forIndex)
 
 
       let subscription = self.subscribe(
@@ -119,10 +121,10 @@ proc switch*[A](self: ObservableCollection[Observable[A]]): ObservableCollection
                 removedItem: values[change.removedFromIndex]
               ))
               subscriptions[change.removedFromIndex].dispose()
-              subscriptions.del(change.removedFromIndex)
-              values.del(change.removedFromIndex)
+              subscriptions.delete(change.removedFromIndex)
+              values.delete(change.removedFromIndex)
             of ChangeKind.Changed:
-              if change.changedAtIndex in subscriptions:
+              if subscriptions.len > change.changedAtIndex:
                 subscriptions[change.changedAtIndex].dispose()
               createSubscription(change.newVal, change.changedAtIndex)
             of ChangeKind.InitialItems:
@@ -143,10 +145,13 @@ type Sublist[A] = ref object
   id: int
   obs: ObservableCollection[A]
   length: int
-proc `$`(self: Sublist): string =
+
+proc `$`*[A](self: Sublist[A]): string =
   &"Sublist({self.id}, {self.length})"
+
 proc hash*[A](self: Sublist[A]): Hash =
   self.id.hash
+
 proc `==`*[A](self: Sublist[A], other: Sublist[A]): bool =
   self.id == other.id
 
@@ -166,6 +171,10 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
       var positionList = initDoublyLinkedList[Sublist[A]]()
       var values = initTable[Sublist[A], seq[A]]()
       var subscriptions = initTable[Sublist[A], Subscription]()
+
+      proc `$`(self: DoublyLinkedList[Sublist[A]]): string =
+        for value in self.items:
+          result &= $(values[value]) & " -> "
 
       proc sublistIndex(self: DoublyLinkedList[Sublist[A]], sublist: Sublist[A]): int =
         for item in self.items():
@@ -251,10 +260,11 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
                 ))
                 values[sublist][change.changedAtIndex] = change.newVal
               of ChangeKind.InitialItems:
+                let offset = positionList.offsetForSublist(sublist)
                 for (index, item) in change.items.pairs():
                   subscriber.onChanged(Change[A](
                     kind: ChangeKind.Added,
-                    addedAtIndex: positionList.offsetForSublist(sublist) + index,
+                    addedAtIndex: offset + index,
                     newItem: item
                   ))
                   values[sublist].add(item)
@@ -270,11 +280,12 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
               # TODO: Handle removal of collection in switched nested collections
               let node = positionList.sublistNodeAtIndex(change.removedFromIndex).get
               let sublist = node.value
+              let offset = positionList.offsetForSublist(sublist)
               for (index, value) in values[sublist].pairs():
                 subscriber.onChanged(Change[A](
                   kind: ChangeKind.Removed,
                   removedItem: value,
-                  removedFromIndex: positionList.offsetForSublist(sublist)
+                  removedFromIndex: offset
                 ))
               values.del(sublist)
               positionList.remove(node)

@@ -262,9 +262,28 @@ proc len*[T](self: CollectionSubject[T]): Observable[int] =
       )
   )
 
-# TODO: Implement len for ObservableCollection
-# proc len*[T](self: ObservableCollection[T]): Observable[int] =
-#   self.source.len()
+proc len*[T](self: ObservableCollection[T]): Observable[int] =
+  createObservable(
+    proc(subscriber: Subscriber[int]): Subscription =
+      var collectionLength = 0
+      let subscription = self.subscribe(
+        proc(change: Change[T]): void =
+          case change.kind:
+            of ChangeKind.Added:
+              collectionLength += 1
+            of ChangeKind.Removed:
+              collectionLength -= 1
+            of ChangeKind.Changed:
+              discard
+            of ChangeKind.InitialItems:
+              collectionLength = change.items.len
+          subscriber.onNext(collectionLength)
+      )
+      # TODO: Handle subscriptions for observable collection
+      Subscription(
+        dispose: subscription.dispose
+      )
+  )
 
 proc map*[T,R](self: ObservableCollection[T], mapper: T -> R): ObservableCollection[R] =
   ## Maps items using the supplied mapper function. T must have hash implemented in order for this operator
@@ -320,14 +339,14 @@ template map*[T,R](self: CollectionSubject[T], mapper: (T) -> R): ObservableColl
 proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): ObservableCollection[T] =
   ObservableCollection[T](
     onSubscribe: proc(subscriber: CollectionSubscriber[T]): Subscription =
-      var items: OrderedTable[int, T] = initOrderedTable[int, T]()
+      var items: seq[T] = @[]
       proc calculateActualIndex(index: int): int =
-        var i = 0
+        var i = -1
         for (originalIndex, item) in items.pairs():
-          if originalIndex == index:
-             return i
           if predicate(item):
             i += 1
+          if originalIndex == index:
+            return i
         raise newException(Exception, "Failed to calculate index during filtering of observable collection")
 
       proc collectionLen(): int =
@@ -339,7 +358,7 @@ proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): Observable
         proc(change: Change[T]): void =
           case change.kind:
             of ChangeKind.Added:
-              items[change.addedAtIndex] = change.newItem
+              items.insert(change.newItem, change.addedAtIndex)
               if predicate(change.newItem):
                 subscriber.onChanged(Change[T](
                   kind: ChangeKind.Added,
@@ -353,7 +372,7 @@ proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): Observable
                   removedItem: change.removedItem,
                   removedFromIndex: calculateActualIndex(change.removedFromIndex)
                 ))
-              items.del(change.removedFromIndex)
+              items.delete(change.removedFromIndex)
             of ChangeKind.Changed:
               items[change.changedAtIndex] = change.newVal
               if predicate(change.newVal) and not predicate(change.oldVal):
@@ -378,7 +397,7 @@ proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): Observable
             of ChangeKind.InitialItems:
               var actualIndex = 0
               for (index, item) in change.items.pairs():
-                items[index] = item
+                items.add(item)
                 if predicate(item):
                   subscriber.onChanged(Change[T](
                     kind: ChangeKind.Added,

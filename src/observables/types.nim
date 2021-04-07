@@ -1,4 +1,4 @@
-import options, sugar, tables, hashes, typetraits
+import options, sugar, tables, hashes, typetraits, strformat
 
 type
   Error* = string
@@ -83,7 +83,21 @@ proc `&`*(a,b: Subscription): Subscription =
   )
 
 proc `$`*[T](a: Observable[T]): string =
-  echo "Observable of ", name(T)
+  "Observable of " & name(T)
 
 proc `$`*[T](a: Subject[T]): string =
-  echo "Subject of ", name(T)
+  "Subject of " & name(T)
+
+proc `$`*[T](a: ObservableCollection[T]): string =
+  "Collection of " & name(T)
+
+proc `$`*[T](self: Change[T]): string =
+  case self.kind:
+    of Added:
+      &"added({self.newItem}, {self.addedAtIndex})"
+    of Removed:
+      &"removed({self.removedItem}, {self.removedFromIndex})"
+    of Changed:
+      &"changed({self.changedAtIndex}, {self.oldVal}, {self.newVal})"
+    of InitialItems:
+      &"initialItems({self.items.len})"

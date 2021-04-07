@@ -453,6 +453,130 @@ suite "observable collection tests":
     check(behaviorSubj.value[0] == "firstInSecond-foo")
     check(behaviorSubj.value[1] == "baz-foo")
 
+  test "switch and filter ":
+    let collection = observableCollection[ObservableCollection[string]]()
+
+    let c = collection.source.switch().filter(
+      proc(x: string): bool =
+        x.len > 3
+    ).cache
+
+    let col1 = observableCollection[string]()
+    collection.add(col1.source)
+
+    col1.add("foo")
+
+    check(c.values.len == 0)
+
+    col1.add("bars")
+    check(c.values.len == 1)
+
+    let col2 = observableCollection[string]()
+    collection.add(col2.source)
+    check(c.values.len == 1)
+
+    col2.add("bark")
+    check(c.values.len == 2)
+
+    col1.add("bi")
+    check(c.values.len == 2)
+
+    echo "Removing bars"
+    col1.remove("bars")
+    check(c.values.len == 1)
+
+    col1.insert("first", 1)
+    check(c.values.len == 2)
+
+    col2.insert("firstInSecond", 0)
+    check(c.values.len == 3)
+
+    echo "Removing foo, bi, first"
+    collection.remove(col1.source)
+    check(c.values.len == 2)
+
+  test "switch and filter 2":
+    let collection = observableCollection[ObservableCollection[string]]()
+
+    let c = collection.source.switch().filter(
+      proc(x: string): bool =
+        x.len > 3
+    ).cache
+
+    let col1 = observableCollection[string]()
+    collection.add(col1.source)
+
+    col1.add("foo")
+
+    check(c.values.len == 0)
+    # []
+
+    col1.add("bars")
+    check(c.values.len == 1)
+    # [bars]
+
+    let col2 = observableCollection[string]()
+    collection.add(col2.source)
+    check(c.values.len == 1)
+    # [bars]
+
+    col2.add("bark")
+    check(c.values.len == 2)
+    # [bars, bark]
+
+    col1.add("bi")
+    check(c.values.len == 2)
+    # [bars, bark]
+
+    echo "Removing bars"
+    col1.remove("bars")
+    check(c.values.len == 1)
+    # [bark]
+
+    col1.insert("first", 1)
+    check(c.values.len == 2)
+    # [bark, first]
+
+    col2.insert("firstInSecond", 0)
+    check(c.values.len == 3)
+    # [firstInSecond, bark, first]
+
+    echo "Removing ", col2.values
+    collection.remove(col2.source)
+    check(c.values.len == 1)
+    # [first]
+
+    let col3 = observableCollection[string](@["heisann"])
+    collection.add(col3.source)
+    check(c.values.len == 2)
+
+  test "switch and filter 3":
+    let collection = observableCollection[ObservableCollection[string]]()
+
+    let c = collection.source.switch().filter(
+      proc(x: string): bool =
+        x.len > 3
+    ).cache
+
+    let col1 = observableCollection[string]()
+    collection.add(col1.source)
+
+    col1.add("foo")
+    col1.add("bars")
+
+    let col2 = observableCollection[string]()
+    collection.add(col2.source)
+    col2.add("bark")
+    col1.add("bi")
+
+
+    let col3 = observableCollection[string](@["heisann"])
+    collection.add(col3.source)
+
+    collection.remove(col2.source)
+
+    let col4 = observableCollection[string](@["dera"])
+    collection.add(col4.source)
 
 suite "More observable tests":
   test "Subject (PublishSubject) basics":
@@ -545,6 +669,39 @@ suite "More observable tests":
     s1.next(1)
     check(value.value == 4)
     check(total == 19)
+
+  test "Collection.switch(Observable) and filter":
+    let outer = observableCollection[Observable[int]]()
+
+    let filtered = outer.source.switch().filter(
+      proc(x: int): bool =
+        x > 3
+    ).cache
+
+    let value = behaviorSubject(filtered)
+
+    let s1 = behaviorSubject(10)
+    outer.add(s1.source)
+    s1 <- 5
+
+    let s2 = behaviorSubject(4)
+    outer.add(s2.source)
+
+    outer.remove(s1.source)
+
+    let s3 = behaviorSubject(29)
+    outer.add(s3.source)
+
+    check(filtered.values.len == 2)
+    check(filtered.values[0] == 4)
+    check(filtered.values[1] == 29)
+    s3 <- 50
+    check(filtered.values[1] == 50)
+
+    outer.remove(s2.source)
+    check(filtered.values.len == 1)
+    check(filtered.values[0] == 50)
+
 
 suite "Observable table":
   test "Basic table test":
