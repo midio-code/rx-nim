@@ -341,12 +341,12 @@ proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): Observable
     onSubscribe: proc(subscriber: CollectionSubscriber[T]): Subscription =
       var items: seq[T] = @[]
       proc calculateActualIndex(index: int): int =
-        var i = -1
+        var i = 0
         for (originalIndex, item) in items.pairs():
-          if predicate(item):
-            i += 1
           if originalIndex == index:
             return i
+          if predicate(item):
+            i += 1
         raise newException(Exception, "Failed to calculate index during filtering of observable collection")
 
       proc collectionLen(): int =

@@ -81,15 +81,14 @@ proc switch*[A](observables: Observable[ObservableCollection[A]]): ObservableCol
 proc switch*[A](self: ObservableCollection[Observable[A]]): ObservableCollection[A] =
   ObservableCollection[A](
     onSubscribe: proc(subscriber: CollectionSubscriber[A]): Subscription =
-      var values: seq[A] = @[]
+      var values: seq[Option[A]] = @[]
       var subscriptions: seq[Subscription] = @[]
 
       proc createSubscription(obs: Observable[A], forIndex: int): void =
-        var hasValue = false
+        values.insert(none[A](), forIndex)
         subscriptions.insert(obs.subscribe(
           proc(val: A): void =
-            if not hasValue:
-              hasValue = true
+            if values[forIndex].isNone:
               subscriber.onChanged(
                 Change[A](
                   kind: ChangeKind.Added,
@@ -101,12 +100,13 @@ proc switch*[A](self: ObservableCollection[Observable[A]]): ObservableCollection
               subscriber.onChanged(
                 Change[A](
                   kind: ChangeKind.Changed,
-                  oldVal: values[forIndex],
+                  oldVal: values[forIndex].get,
                   newVal: val,
                   changedAtIndex: forIndex
                 )
               )
-            values.insert(val, forIndex)
+
+            values[forIndex] = some(val)
         ), forIndex)
 
 
@@ -118,7 +118,7 @@ proc switch*[A](self: ObservableCollection[Observable[A]]): ObservableCollection
             of ChangeKind.Removed:
               subscriber.onChanged(Change[A](
                 kind: ChangeKind.Removed,
-                removedItem: values[change.removedFromIndex]
+                removedItem: values[change.removedFromIndex].get
               ))
               subscriptions[change.removedFromIndex].dispose()
               subscriptions.delete(change.removedFromIndex)

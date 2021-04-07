@@ -5,6 +5,13 @@ import options
 import tables
 import unittest
 import src/rx_nim
+import hashes
+
+proc hash(self: Option[string]): Hash =
+  if self.isSome:
+    self.get.hash()
+  else:
+    0
 
 suite "observable tests":
   test "Observable test 1":
@@ -701,6 +708,31 @@ suite "More observable tests":
     outer.remove(s2.source)
     check(filtered.values.len == 1)
     check(filtered.values[0] == 50)
+
+  test "Filter'n switch'n get'n stuff":
+    let table = observableTable[int, string]()
+    let collection = observableCollection[int]()
+
+    let mapped = collection.map(
+      proc(obs: int): Observable[Option[string]] =
+        table.get(obs)
+    ).switch.filter(
+      proc(x: Option[string]): bool =
+        x.isSome
+    ).map(
+      proc(x: Option[string]): string =
+        x.get
+    ).cache
+
+    collection.add(1)
+    check(mapped.values.len == 0)
+    table.set(1, "foobar")
+    check(mapped.values.len == 1)
+    check(mapped.values[0] == "foobar")
+
+    table.set(2, "baz")
+    discard table.delete(1)
+    check(mapped.values.len == 0)
 
 
 suite "Observable table":
