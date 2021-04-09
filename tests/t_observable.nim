@@ -731,8 +731,16 @@ suite "More observable tests":
     check(mapped.values[0] == "foobar")
 
     table.set(2, "baz")
+
+    collection.add(2)
+
     discard table.delete(1)
-    check(mapped.values.len == 0)
+    check(mapped.values.len == 1)
+
+    check(mapped.values.len == 1)
+
+    collection.remove(1)
+    check(mapped.values.len == 1)
 
 
 suite "Observable table":
