@@ -401,3 +401,17 @@ proc `or`*(self: Observable[bool], other: Observable[bool]): Observable[bool] =
 
 proc `and`*(self: Observable[bool], other: Observable[bool]): Observable[bool] =
   self.combineLatest(other, (a: bool, b: bool) => a and b)
+
+proc once*[T](self: Observable[T], handler: (T) -> void): void =
+  var subscription: Subscription
+  var shouldUnsubscribe = false
+  subscription = self.subscribe(
+    proc(val: T): void =
+      handler(val)
+      if not isNil(subscription):
+        subscription.dispose()
+      else:
+        shouldUnsubscribe = true
+  )
+  if shouldUnsubscribe:
+    subscription.dispose()

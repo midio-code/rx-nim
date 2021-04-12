@@ -130,6 +130,16 @@ take[T](self: Observable[T], num: int): Observable[T] =
 
 Pushes `num` values from `self` and then completes.
 
+### Utils
+
+#### Once
+
+Calls handler once the next time the observable fires
+
+```nim
+once[T](self: Observable[T], handler: (T) -> void): void =
+```
+
 # ObservableCollection
 
 Observable collections observables that contains a list of items, and pushes information about when items are added, removed, or changed.
