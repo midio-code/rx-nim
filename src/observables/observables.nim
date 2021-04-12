@@ -59,6 +59,20 @@ proc behaviorSubject*[T](value: T = default(T)): Subject[T] =
   )
   ret
 
+proc subject*[T](): Subject[T] =
+  ## Creates a normal ``subject``, which has no value, and only notifies their subscriber
+  ## the next time a new value is pushed to it.
+  let ret = Subject[T]()
+  ret.source = Observable[T](
+    onSubscribe: proc(subscriber: Subscriber[T]): Subscription =
+      ret.subscribers.add(subscriber)
+      Subscription(
+        dispose: proc(): void =
+          subscriber.disposed = true
+      )
+  )
+  ret
+
 template state*[T](value: T): untyped =
   behaviorSubject(value)
 
@@ -110,20 +124,6 @@ proc behaviorSubject*[T](source: Observable[T]): Subject[T] =
   discard source.subscribe(
     proc(newVal: T): void =
       ret.next(newVal)
-  )
-  ret
-
-proc subject*[T](): Subject[T] =
-  ## Creates a normal ``subject``, which has no value, and only notifies their subscriber
-  ## the next time a new value is pushed to it.
-  var ret = Subject[T]()
-  ret.source = Observable[T](
-    onSubscribe: proc(subscriber: Subscriber[T]): Subscription =
-      ret.subscribers.add(subscriber)
-      Subscription(
-        dispose: proc(): void =
-          ret.subscribers.remove(subscriber)
-      )
   )
   ret
 
