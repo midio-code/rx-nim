@@ -589,3 +589,9 @@ proc toObservableCollection*[T](self: Observable[T]): ObservableCollection[T] =
           previousVal = some(newItem)
       )
   )
+
+proc any*[T](self: ObservableCollection[T], predicate: (T) -> bool): Observable[bool] =
+  self.firstWhere(predicate).map(
+    proc(x: Option[T]): bool =
+      x.isSome
+  )

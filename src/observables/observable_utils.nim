@@ -370,6 +370,20 @@ proc log*[T](self: Observable[T], prefix: string = ""): Observable[T] =
       val
   )
 
+proc log*[A](self: ObservableCollection[A], prefix: string = ""): ObservableCollection[A] =
+  ObservableCollection[A](
+    onSubscribe: proc(subscriber: CollectionSubscriber[A]): Subscription =
+      let subscription = self.subscribe(
+        proc(change: Change[A]): void =
+          echo prefix, change
+          subscriber.onChanged(change)
+      )
+
+      Subscription(
+        dispose: subscription.dispose
+      )
+  )
+
 proc unique*[T](self: Observable[T]): Observable[T] =
   var prev = default(T)
   self.filter(
