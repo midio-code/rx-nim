@@ -13,6 +13,26 @@ proc hash(self: Option[string]): Hash =
   else:
     0
 
+type Box[T] = ref object
+  id: int
+  value*: T
+
+var boxIdCounter = 0
+
+proc box[T](value: T): Box[T] =
+  result = Box[T](value: value, id: boxIdCounter)
+  boxIdCounter += 1
+
+proc hash[T](self: Box[T]): Hash =
+  self.id.hash
+
+proc hash[T](self: Option[Box[T]]): Hash =
+  if self.isSome:
+    self.get.hash
+  else:
+    0
+
+
 suite "observable tests":
   test "Observable test 1":
     let subj = behaviorSubject(123)
@@ -741,6 +761,44 @@ suite "More observable tests":
 
     collection.remove(1)
     check(mapped.values.len == 1)
+
+
+  test "A bunch of switching":
+    let tableOne = observableTable[string, Box[ObservableCollection[int]]]()
+    let tableTwo = observableTable[int, string]()
+    let tableThree = observableTable[string, string]()
+
+    tableOne.set("one", box(observableCollection[int](@[1]).source))
+    tableOne.set("two", box(observableCollection[int](@[2]).source))
+    tableOne.set("three", box(observableCollection[int](@[3]).source))
+
+    tableTwo.set(1, "1")
+    tableTwo.set(2, "2")
+    tableTwo.set(3, "3")
+
+    let items = observableCollection[string](@["one", "two", "three"])
+
+    let res = items.map(
+      proc(item: string): auto =
+        tableOne.get(item)
+    )
+    .switch
+    .filter((x: Option[Box[ObservableCollection[int]]]) => x.isSome)
+    .map((x: Option[Box[ObservableCollection[int]]]) => x.get.value)
+    .switch
+    .map((x: int) => tableTwo.get(x))
+    .switch
+    .unwrap.cache
+
+    check(res.values.len == 3)
+    check(res.values[0] == "1")
+    check(res.values[1] == "2")
+    check(res.values[2] == "3")
+
+    discard tableOne.delete("three")
+    check(res.values.len == 2)
+    check(res.values[0] == "1")
+    check(res.values[1] == "2")
 
 
 suite "Observable table":
