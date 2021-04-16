@@ -22,7 +22,9 @@ proc observableTable*[TKey, TValue](initialItems: OrderedTableRef[TKey, TValue] 
 
 proc set*[TKey, TValue](self: TableSubject[TKey, TValue], key: TKey, value: TValue): void =
   self.items[key] = value
-  for subscriber in self.subscribers:
+  # NOTE: We assign here to make a copy in case any handler changes the subject subscribers list
+  let subscribers = self.subscribers
+  for subscriber in subscribers:
     subscriber.onSet(key, value)
 
 proc delete*[TKey, TValue](self: TableSubject[TKey, TValue], key: TKey): Option[TValue] =
