@@ -33,7 +33,8 @@ proc subscribe*[T](self: Subject[T], onNext: (T) -> void): Subscription =
 
 proc notifySubscribers*[T](self: Subject[T]): void =
   var disposedSubscribers: seq[Subscriber[T]] = @[]
-  for subscriber in self.subscribers:
+  let subscribers = self.subscribers
+  for subscriber in subscribers:
     if subscriber.disposed:
       disposedSubscribers.add(subscriber)
     else:
