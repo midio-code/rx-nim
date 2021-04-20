@@ -429,3 +429,30 @@ proc once*[T](self: Observable[T], handler: (T) -> void): void =
   )
   if shouldUnsubscribe:
     subscription.dispose()
+
+proc `+`*[T](self: Observable[T], other: Observable[T]): Observable[T] =
+  self.combineLatest(other, (a, b: T) => a + b)
+
+proc `-`*[T](self: Observable[T], other: Observable[T]): Observable[T] =
+  self.combineLatest(other, (a, b: T) => a - b)
+
+proc `/`*[T](self: Observable[T], other: Observable[T]): Observable[T] =
+  self.combineLatest(other, (a, b: T) => a / b)
+
+proc `*`*[T](self: Observable[T], other: Observable[T]): Observable[T] =
+  self.combineLatest(other, (a, b: T) => a * b)
+
+proc `>`*[T](self: Observable[T], other: Observable[T]): Observable[bool] =
+  self.combineLatest(other, (a, b: T) => a > b)
+
+proc `>=`*[T](self: Observable[T], other: Observable[T]): Observable[bool] =
+  self.combineLatest(other, (a, b: T) => a >= b)
+
+proc `<`*[T](self: Observable[T], other: Observable[T]): Observable[bool] =
+  self.combineLatest(other, (a, b: T) => a < b)
+
+proc `<=`*[T](self: Observable[T], other: Observable[T]): Observable[bool] =
+  self.combineLatest(other, (a, b: T) => a <= b)
+
+proc `==`*[T](self: Observable[T], other: Observable[T]): Observable[bool] =
+  self.combineLatest(other, (a, b: T) => a == b)
