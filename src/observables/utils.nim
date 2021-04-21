@@ -1,2 +1,4 @@
 proc remove*[T](self: var seq[T], item: T): void =
-  self.delete(self.find(item))
+  let index = self.find(item)
+  if index >= 0:
+    self.delete(index)
