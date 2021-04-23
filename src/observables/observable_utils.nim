@@ -128,7 +128,8 @@ proc switch*[A](self: ObservableCollection[Observable[A]]): ObservableCollection
             of ChangeKind.Removed:
               subscriber.onChanged(Change[A](
                 kind: ChangeKind.Removed,
-                removedItem: values[change.removedFromIndex].get
+                removedItem: values[change.removedFromIndex].get,
+                removedFromIndex: actualIndex(change.removedFromIndex)
               ))
               subscriptions[change.removedFromIndex].dispose()
               subscriptions.delete(change.removedFromIndex)

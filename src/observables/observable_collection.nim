@@ -173,7 +173,7 @@ proc cache*[T](self: ObservableCollection[T]): CollectionSubject[T] =
         of ChangeKind.Added:
           subject.insert(change.newItem, change.addedAtIndex)
         of ChangeKind.Removed:
-          subject.remove(change.removedItem)
+          subject.removeAt(change.removedFromIndex)
         of ChangeKind.Changed:
           subject.set(change.changedAtIndex, change.newVal)
         of ChangeKind.InitialItems:
