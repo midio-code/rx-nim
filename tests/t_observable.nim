@@ -971,3 +971,57 @@ suite "Observable table":
 
     discard t.delete("two")
     check(x.value == none[int]())
+
+suite "Cache tests":
+  test "Cache with multiple subscribers on source":
+    let source = observableCollection[Box[Observable[int]]](@[])
+
+    discard source.subscribe(
+      proc(change: Change[Box[Observable[int]]]): void =
+        discard
+    )
+
+    var mapCount = 0
+    let m1 = source.source.map(
+      proc(x: Box[Observable[int]]): auto =
+        x.value
+    )
+    discard m1.subscribe(proc(change: Change[Observable[int]]): void = discard)
+    discard m1.subscribe(proc(change: Change[Observable[int]]): void = discard)
+    discard m1.subscribe(proc(change: Change[Observable[int]]): void = discard)
+
+    let switched = m1.switch
+
+    discard switched.subscribe(proc(change: Change[int]): void = discard)
+    discard switched.subscribe(proc(change: Change[int]): void = discard)
+    discard switched.subscribe(proc(change: Change[int]): void = discard)
+
+    let sink = switched.map(
+      proc(x: int): auto =
+        mapCount += 1
+        x * x
+    )
+
+    let filtered = sink.map(
+      proc(x: int): int =
+        x
+    ).filter(
+      proc(x: int): bool =
+        x > 2
+    )
+    let cached = filtered.cache
+    let c2 = filtered.cache
+    let c3 = filtered.cache
+
+    let s1 = behaviorSubject(2)
+    let s2 = behaviorSubject(4)
+    let s1box = box(s1.source)
+    source.add(s1box)
+    source.add(box(s2.source))
+
+    check(cached.values.len == 2)
+    check(cached.values[0] == 4)
+    check(cached.values[1] == 16)
+
+    source.remove(s1box)
+    check(cached.values.len == 1)

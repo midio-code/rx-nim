@@ -454,5 +454,7 @@ proc `<`*[T](self: Observable[T], other: Observable[T]): Observable[bool] =
 proc `<=`*[T](self: Observable[T], other: Observable[T]): Observable[bool] =
   self.combineLatest(other, (a, b: T) => a <= b)
 
-proc `==`*[T](self: Observable[T], other: Observable[T]): Observable[bool] =
+# NOTE: Avoiding an observable == operator as it is expected to return a bool,
+# which a lot of std library features depend on.
+proc equals*[T](self: Observable[T], other: Observable[T]): Observable[bool] =
   self.combineLatest(other, (a, b: T) => a == b)
