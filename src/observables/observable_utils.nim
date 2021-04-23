@@ -176,145 +176,104 @@ proc initSublist[A](obs: ObservableCollection[A]): Sublist[A] =
   sublistIdCounter += 1
 
 proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): ObservableCollection[A] =
+  type
+    SubInfo = ref object
+      subscription: Subscription
+      length: int
+      items: seq[A]
   ObservableCollection[A](
     onSubscribe: proc(subscriber: CollectionSubscriber[A]): Subscription =
+      var innerSubscriptions: seq[SubInfo] = @[]
 
-      var positionList = initDoublyLinkedList[Sublist[A]]()
-      var values = initTable[Sublist[A], seq[A]]()
-      var subscriptions = initTable[Sublist[A], Subscription]()
-
-      proc `$`(self: DoublyLinkedList[Sublist[A]]): string =
-        for value in self.items:
-          result &= $(values[value]) & " -> "
-
-      proc sublistIndex(self: DoublyLinkedList[Sublist[A]], sublist: Sublist[A]): int =
-        for item in self.items():
-          if item == sublist:
-            break
-          result += 1
-
-      proc sublistNode(self: DoublyLinkedList[Sublist[A]], sublist: Sublist[A]): DoublyLinkedNode[Sublist[A]] =
-        for node in self.nodes():
-          if node.value == sublist:
-            return node
-        raise newException(Exception, "Couldn't find node in sublist")
-
-      proc sublistNodeAtIndex(self: DoublyLinkedList[Sublist[A]], index: int): Option[DoublyLinkedNode[Sublist[A]]] =
-        var i = 0
-        for node in self.nodes():
-          if i == index:
-            return some(node)
-          i += 1
-
-      proc sublistAtIndex(self: DoublyLinkedList[Sublist[A]], index: int): Option[Sublist[A]] =
-        let x = self.sublistNodeAtIndex(index)
-        if x.isSome:
-          return some(x.get.value)
-
-      proc offsetForSublist(self: DoublyLinkedList[Sublist[A]], sublist: Sublist[A]): int =
-        var index = 0
-        var node = self.sublistNode(sublist)
-        while not isNil(node.prev):
-          node = node.prev
-          index += node.value.length
-        return index
-
-      proc length(self: DoublyLinkedList[Sublist[A]]): int =
-        for item in self.items:
-          result += 1
-
-      proc createSubscription(obs: ObservableCollection[A], atIndex: int): void =
-        let sublist = initSublist(obs)
-        values[sublist] = @[]
-        let newNode = newDoublyLinkedNode(sublist)
-        if atIndex > 0:
-          let nodeBeforeIndex = positionList.sublistNodeAtIndex(atIndex - 1).get
-
-          newNode.prev = nodeBeforeIndex
-          newNode.next = nodeBeforeIndex.next
-          nodeBeforeIndex.next = newNode
-
-        let listLen = positionList.length
-
-        if atIndex == 0:
-          if atIndex < listLen:
-            newNode.next = positionList.sublistNodeAtIndex(atIndex).get
-          positionList.head = newNode
-        elif atIndex == listLen:
-          positionList.tail = newNode
-
-        subscriptions[sublist] = sublist.obs.subscribe(
+      proc indexOffset(subInfo: SubInfo): int =
+        for si in innerSubscriptions:
+          if si == subInfo:
+            return result
+          result += si.length
+      proc createSubscriptionForCollection(index: int, collection: ObservableCollection[A]): void =
+        let subInfo = SubInfo(
+          length: 0,
+          items: @[]
+        )
+        subInfo.subscription = collection.subscribe(
           proc(change: Change[A]): void =
             case change.kind:
               of ChangeKind.Added:
-                subscriber.onChanged(Change[A](
-                  kind: ChangeKind.Added,
-                  newItem: change.newItem,
-                  addedAtIndex: positionList.offsetForSublist(sublist) + change.addedAtIndex
-                ))
-                values[sublist].add(change.newItem)
-                sublist.length += 1
-              of ChangeKind.Removed:
-                subscriber.onChanged(Change[A](
-                  kind: ChangeKind.Removed,
-                  removedItem: change.removedItem,
-                  removedFromIndex: positionList.offsetForSublist(sublist) + change.removedFromIndex
-                ))
-                values[sublist].delete(values[sublist].find(change.removedItem))
-                sublist.length -= 1
-              of ChangeKind.Changed:
-                subscriber.onChanged(Change[A](
-                  kind: ChangeKind.Changed,
-                  oldVal: change.oldVal,
-                  newVal: change.newVal,
-                  changedAtIndex: positionList.offsetForSublist(sublist) + change.changedAtIndex
-                ))
-                values[sublist][change.changedAtIndex] = change.newVal
-              of ChangeKind.InitialItems:
-                let offset = positionList.offsetForSublist(sublist)
-                for (index, item) in change.items.pairs():
-                  subscriber.onChanged(Change[A](
+                subInfo.length += 1
+                subInfo.items.insert(change.newItem, change.addedAtIndex)
+                subscriber.onChanged(
+                  Change[A](
                     kind: ChangeKind.Added,
-                    addedAtIndex: offset + index,
-                    newItem: item
-                  ))
-                  values[sublist].add(item)
-                  sublist.length += 1
+                    addedAtIndex: subInfo.indexOffset() + change.addedAtIndex,
+                    newItem: change.newItem
+                  )
+                )
+              of ChangeKind.Removed:
+                subInfo.items.delete(change.removedFromIndex)
+                subInfo.length -= 1
+                subscriber.onChanged(
+                  Change[A](
+                    kind: ChangeKind.Removed,
+                    removedFromIndex: subInfo.indexOffset() + change.removedFromIndex,
+                    removedItem: change.removedItem
+                  )
+                )
+              of ChangeKind.Changed:
+                subInfo.items[change.changedAtIndex] = change.newVal
+                subscriber.onChanged(
+                  Change[A](
+                    kind: ChangeKind.Changed,
+                    changedAtIndex: subInfo.indexOffset() + change.changedAtIndex,
+                    oldVal: change.oldVal,
+                    newVal: change.newVal
+                  )
+                )
+              of ChangeKind.InitialItems:
+                for index, item in change.items:
+                  subInfo.items.add(item)
+                  subscriber.onChanged(
+                    Change[A](
+                      kind: ChangeKind.Added,
+                      addedAtIndex: subInfo.indexOffset() + subInfo.length,
+                      newItem: item
+                    )
+                  )
+                  subInfo.length += 1
         )
+        innerSubscriptions.insert(subInfo, index)
+
+      proc disposeSubscription(index: int, removedItem: ObservableCollection[A]): void =
+        let subInfo = innerSubscriptions[index]
+        let indexOffset = subInfo.indexOffset()
+        for removedItem in subInfo.items:
+          subscriber.onChanged(
+            Change[A](
+              kind: ChangeKind.Removed,
+              removedFromIndex: indexOffset,
+              removedItem: removedItem
+            )
+          )
+        subInfo.subscription.dispose()
+        innerSubscriptions.delete(index)
 
       let subscription = self.subscribe(
         proc(change: Change[ObservableCollection[A]]): void =
           case change.kind:
             of ChangeKind.Added:
-              createSubscription(change.newItem, change.addedAtIndex)
+              createSubscriptionForCollection(change.addedAtIndex, change.newItem)
             of ChangeKind.Removed:
-              # TODO: Handle removal of collection in switched nested collections
-              let node = positionList.sublistNodeAtIndex(change.removedFromIndex).get
-              let sublist = node.value
-              let offset = positionList.offsetForSublist(sublist)
-              for (index, value) in values[sublist].pairs():
-                subscriber.onChanged(Change[A](
-                  kind: ChangeKind.Removed,
-                  removedItem: value,
-                  removedFromIndex: offset
-                ))
-              values.del(sublist)
-              positionList.remove(node)
-              subscriptions[sublist].dispose()
-              subscriptions.del(sublist)
+              disposeSubscription(change.removedFromIndex, change.removedItem)
             of ChangeKind.Changed:
-              let sublist = positionList.sublistAtIndex(change.changedAtIndex).get
-              subscriptions[sublist].dispose()
-              createSubscription(change.newVal, change.changedAtIndex)
+              disposeSubscription(change.changedAtIndex, change.oldVal)
+              createSubscriptionForCollection(change.changedAtIndex, change.newVal)
             of ChangeKind.InitialItems:
-              let items: seq[ObservableCollection[A]] = change.items
-              for (index, initialItem) in items.pairs():
-                createSubscription(initialItem, index)
+              for (index, initialItem) in change.items.pairs():
+                createSubscriptionForCollection(index, initialItem)
       )
       proc disposeAll(): void =
         subscription.dispose()
-        for (index, sub) in subscriptions.pairs():
-          sub.dispose()
+        for subInfo in innerSubscriptions:
+          subInfo.subscription.dispose()
       Subscription(
         dispose: disposeAll
       )
