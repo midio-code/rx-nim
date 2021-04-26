@@ -205,35 +205,55 @@ proc toObservableTable*[TKey, TValue](self: Observable[seq[TKey]], mapper: TKey 
       )
   )
 
+type
+  RefCount[T] = ref object
+    value: T
+    count: int
+proc retain(self: RefCount): void =
+  self.count += 1
+proc release(self: RefCount): void =
+  self.count -= 1
+
+proc initRefCount[T](value: T): RefCount[T] =
+  RefCount[T](value: value, count: 0)
+
 proc mapToTable*[TKey, TValue](self: ObservableCollection[TKey], mapper: TKey -> TValue): ObservableTable[TKey, TValue] =
-  let values = newTable[TKey, TValue]()
+  var values = initOrderedTable[TKey, RefCount[TValue]]()
   ObservableTable[TKey, TValue](
     onSubscribe: proc(subscriber: TableSubscriber[TKey, TValue]): Subscription =
+      proc retain(key: TKey): void =
+        values[key].retain()
+
+      proc release(key: TKey): void =
+        values[key].release()
+
+      proc setItem(key: TKey): void =
+        if not values.hasKey(key):
+          values[key] = initRefCount(mapper(key))
+        key.retain()
+        subscriber.onSet(key, values[key].value)
+
+      proc deleteItem(key: TKey): void =
+        key.release()
+        let refCount = values[key]
+        if refCount.count == 0:
+          values.del(key)
+          subscriber.onDeleted(key, refCount.value)
+
+
       self.subscribe(
-        proc(item: TKey): void =
-          if not(values.hasKey(item)):
-            let v = mapper(item)
-            values[item] =  v
-            subscriber.onSet(item, v),
-        proc(removed: TKey): void =
-          let ret = values[removed]
-          values.del(removed)
-          subscriber.onDeleted(removed, ret),
-        proc(initialItems: seq[TKey]): void =
-          var toDelete: seq[(TKey, TValue)] = @[]
-          for k, v in values.pairs:
-            if k notin initialItems:
-              toDelete.add((k, v))
-          for i in toDelete:
-            let (k, v) = i
-            values.del(k)
-            subscriber.onDeleted(k, v)
-          # TODO: Optimize
-          for item in initialItems:
-            let v = mapper(item)
-            if not(values.hasKey(item)) or values[item] != v:
-              values[item] =  v
-              subscriber.onSet(item, v)
+        proc(change: Change[TKey]): void =
+          case change.kind:
+            of ChangeKind.Added:
+              setItem(change.newItem)
+            of ChangeKind.Removed:
+              deleteItem(change.removedItem)
+            of ChangeKind.Changed:
+              deleteItem(change.oldVal)
+              setItem(change.newVal)
+            of ChangeKind.InitialItems:
+              for item in change.items:
+                setItem(item)
       )
   )
 
@@ -242,37 +262,60 @@ proc mapToTable*[TKey, TValue](self: CollectionSubject[TKey], mapper: TKey -> TV
 
 
 proc toObservableTable*[T, TKey, TValue](self: ObservableCollection[T], mapper: T -> (TKey, TValue)): ObservableTable[TKey, TValue] =
-  ## NOTE: We require T to be hashable
-  let values = newTable[T, (TKey, TValue)]()
+  ## NOTE: We require T and TKey to be hashable
+  var values = newOrderedTable[TKey, OrderedTableRef[T, TValue]]()
+  var keys = newOrderedTable[T, RefCount[TKey]]()
+
   ObservableTable[TKey, TValue](
     onSubscribe: proc(subscriber: TableSubscriber[TKey, TValue]): Subscription =
+      proc setItem(originalKey: T): void =
+        if not keys.hasKey(originalKey):
+          let (key, value) = mapper(originalKey)
+          keys[originalKey] = initRefCount(key)
+
+          if not values.hasKey(key):
+            values[key] = newOrderedTable[T, TValue]()
+          values[key][originalKey] = value
+
+        let key = keys[originalKey]
+        let value = values[key.value]
+
+        key.retain()
+        subscriber.onSet(key.value, value[originalKey])
+
+      proc deleteItem(originalKey: T): void =
+        let key = keys[originalKey]
+
+        key.release()
+
+
+        if key.count == 0:
+          keys.del(originalKey)
+
+        let value = values[key.value]
+        if value.len > 0:
+          let actualValue = value[originalKey]
+          value.del(originalKey)
+          if value.len == 0:
+            subscriber.onDeleted(key.value, actualValue)
+          else:
+            let pairs = toSeq(value.values())
+            let newValue = pairs[pairs.len - 1]
+            subscriber.onSet(key.value, newValue)
+
       self.subscribe(
-        proc(item: T): void =
-          if not(values.hasKey(item)):
-            let (k,v) = mapper(item)
-            values[item] =  (k,v)
-            subscriber.onSet(k, v),
-        proc(removed: T): void =
-          let (k,v)= values[removed]
-          values.del(removed)
-          subscriber.onDeleted(k, v),
-        proc(initialItems: seq[T]): void =
-          var toDelete: seq[(T, (TKey, TValue))] = @[]
-          for item, kv in values.pairs:
-            if item notin initialItems:
-              toDelete.add((item, kv))
-          for i in toDelete:
-            let (item, kv) = i
-            values.del(item)
-            let (k, v) = kv
-            subscriber.onDeleted(k, v)
-          # TODO: Optimize
-          for item in initialItems:
-            let kv = mapper(item)
-            if not(values.hasKey(item)) or values[item] != kv:
-              values[item] =  kv
-              let (k,v) = kv
-              subscriber.onSet(k, v)
+        proc(change: Change[T]): void =
+          case change.kind:
+            of ChangeKind.Added:
+              setItem(change.newItem)
+            of ChangeKind.Removed:
+              deleteItem(change.removedItem)
+            of ChangeKind.Changed:
+              deleteItem(change.oldVal)
+              setItem(change.newVal)
+            of ChangeKind.InitialItems:
+              for item in change.items:
+                setItem(item)
       )
   )
 

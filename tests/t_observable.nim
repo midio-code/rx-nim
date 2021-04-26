@@ -1,4 +1,5 @@
 import sugar
+import strformat
 import sequtils
 import lists
 import options
@@ -1025,3 +1026,50 @@ suite "Cache tests":
 
     source.remove(s1box)
     check(cached.values.len == 1)
+
+suite "Collection to table with duplicates":
+  test "Collection with duplicate":
+    let col = observableCollection(@[1,2,3])
+    let tab = col.toObservableTable(
+      proc(x: int): (int, string) =
+        let xx = x * x
+        (xx, &"{x} * {x} = {xx}")
+    ).cache
+
+    check(tab.getCurrentValue(1).get == "1 * 1 = 1")
+    check(tab.getCurrentValue(4).get == "2 * 2 = 4")
+    check(tab.getCurrentValue(9).get == "3 * 3 = 9")
+
+    col.add(-2)
+
+    check(tab.getCurrentValue(1).get == "1 * 1 = 1")
+    check(tab.getCurrentValue(4).get == "-2 * -2 = 4")
+    check(tab.getCurrentValue(9).get == "3 * 3 = 9")
+
+    col.remove(-2)
+    check(tab.getCurrentValue(1).get == "1 * 1 = 1")
+    check(tab.getCurrentValue(4).get == "2 * 2 = 4")
+    check(tab.getCurrentValue(9).get == "3 * 3 = 9")
+
+  test "Collection with duplicate (delete in other end)":
+    let col = observableCollection(@[1,2,3])
+    let tab = col.toObservableTable(
+      proc(x: int): (int, string) =
+        let xx = x * x
+        (xx, &"{x} * {x} = {xx}")
+    ).cache
+
+    check(tab.getCurrentValue(1).get == "1 * 1 = 1")
+    check(tab.getCurrentValue(4).get == "2 * 2 = 4")
+    check(tab.getCurrentValue(9).get == "3 * 3 = 9")
+
+    col.add(-2)
+
+    check(tab.getCurrentValue(1).get == "1 * 1 = 1")
+    check(tab.getCurrentValue(4).get == "-2 * -2 = 4")
+    check(tab.getCurrentValue(9).get == "3 * 3 = 9")
+
+    col.remove(2)
+    check(tab.getCurrentValue(1).get == "1 * 1 = 1")
+    check(tab.getCurrentValue(4).get == "-2 * -2 = 4")
+    check(tab.getCurrentValue(9).get == "3 * 3 = 9")
