@@ -532,34 +532,39 @@ proc combineLatest*[A,B,R](a: ObservableCollection[A], b: ObservableCollection[B
 
 
 # TODO: Write tests
-proc firstWhere*[T](self: ObservableCollection[T], predicate: T -> bool): Observable[Option[T]] =
-  var emittedStack: seq[T] = @[]
+proc firstWhere*[T](self: ObservableCollection[T], predicate: T -> bool, label: string = ""): Observable[Option[T]] =
+  type
+    Box = ref object
+      item: T
+      isValid: bool
+  var items: seq[Box] = @[]
   Observable[Option[T]](
     onSubscribe:
       proc(subscriber: Subscriber[Option[T]]): Subscription =
         self.subscribe(
-          proc(added: T): void =
-            if emittedStack.len > 0:
-              return
-            if predicate(added):
-              emittedStack.add(added)
-              subscriber.onNext(some(added))
-              return,
-          proc(removed: T): void =
-            if removed in emittedStack:
-              emittedStack.delete(emittedStack.find(removed))
-              if emittedStack.len > 0:
-                subscriber.onNext(some(emittedStack[emittedStack.len - 1]))
-              else:
-                subscriber.onNext(none[T]())
-          ,
-          proc(initial: seq[T]): void =
-            for i in initial:
-              if predicate(i):
-                subscriber.onNext(some(i))
-                emittedStack.add(i)
-                return
-            subscriber.onNext(none[T]())
+          proc(change: Change[T]): void =
+            proc emit(): void =
+              for index, item in items:
+                if item.isValid:
+                  subscriber.onNext(some(item.item))
+                  return
+              subscriber.onNext(none[T]())
+
+            case change.kind:
+              of ChangeKind.Added:
+                items.insert(Box(item: change.newItem, isValid: predicate(change.newItem)), change.addedAtIndex)
+                emit()
+              of ChangeKind.Removed:
+                items.delete(change.removedFromIndex)
+                emit()
+              of ChangeKind.Changed:
+                items[change.changedAtIndex].item = change.newVal
+                items[change.changedAtIndex].isValid = predicate(change.newVal)
+                emit()
+              of ChangeKind.InitialItems:
+                for item in change.items:
+                  items.add(Box(item: item, isValid: predicate(item)))
+                emit()
         )
   )
 
