@@ -419,12 +419,9 @@ proc toObservable*[T](self: CollectionSubject[T]): Observable[seq[T]] =
     proc(subscriber: Subscriber[seq[T]]): Subscription =
       subscriber.onNext(self.values)
       let subscription = self.subscribe(
-        proc(added: T): void =
-          subscriber.onNext(self.values),
-        proc(removed: T): void =
-          subscriber.onNext(self.values),
-        proc(initialItems: seq[T]): void =
-          subscriber.onNext(initialItems)
+        proc(change: Change[T]): void =
+          let valuesCopy = self.values
+          subscriber.onNext(valuesCopy)
       )
       Subscription(
         dispose: subscription.dispose
@@ -432,19 +429,21 @@ proc toObservable*[T](self: CollectionSubject[T]): Observable[seq[T]] =
   )
 
 proc toObservable*[T](self: ObservableCollection[T]): Observable[seq[T]] =
-  var values: seq[T] = @[]
+  var valuesCache: seq[T] = @[]
   createObservable(
     proc(subscriber: Subscriber[seq[T]]): Subscription =
       let subscription = self.subscribe(
-        proc(added: T): void =
-          values.add(added)
-          subscriber.onNext(values),
-        proc(removed: T): void =
-          values.delete(values.find(removed))
-          subscriber.onNext(values),
-        proc(initialItems: seq[T]): void =
-          values = initialItems
-          subscriber.onNext(values)
+        proc(change: Change[T]): void =
+          case change.kind:
+            of ChangeKind.Added:
+              valuesCache.insert(change.newItem, change.addedAtIndex)
+            of ChangeKind.Removed:
+              valuesCache.delete(change.removedFromIndex)
+            of ChangeKind.Changed:
+              valuesCache[change.changedAtIndex] = change.newVal
+            of ChangeKind.InitialItems:
+              valuesCache = change.items
+          subscriber.onNext(valuesCache)
       )
       Subscription(
         dispose: subscription.dispose

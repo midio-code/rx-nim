@@ -195,6 +195,7 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
           length: 0,
           items: @[]
         )
+        innerSubscriptions.insert(subInfo, index)
         subInfo.subscription = collection.subscribe(
           proc(change: Change[A]): void =
             case change.kind:
@@ -240,17 +241,16 @@ proc switch*[A](self: ObservableCollection[ObservableCollection[A]]): Observable
                   )
                   subInfo.length += 1
         )
-        innerSubscriptions.insert(subInfo, index)
 
       proc disposeSubscription(index: int, removedItem: ObservableCollection[A]): void =
         let subInfo = innerSubscriptions[index]
         let indexOffset = subInfo.indexOffset()
-        for removedItem in subInfo.items:
+        for item in subInfo.items:
           subscriber.onChanged(
             Change[A](
               kind: ChangeKind.Removed,
               removedFromIndex: indexOffset,
-              removedItem: removedItem
+              removedItem: item
             )
           )
         subInfo.subscription.dispose()
