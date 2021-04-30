@@ -21,6 +21,15 @@ proc whenTrue*[T](self: Observable[bool], onTrue: T): Observable[Option[T]] =
         none[T]()
   )
 
+proc whenFalse*[T](self: Observable[bool], onFalse: T): Observable[Option[T]] =
+  self.map(
+    proc(x: bool): Option[T] =
+      if not x:
+        some(onFalse)
+      else:
+        none[T]()
+  )
+
 proc unwrap*[T](self: Observable[Option[T]]): Observable[T] =
   self.filter(
     proc(x: Option[T]): bool =
@@ -418,3 +427,31 @@ proc `<=`*[T](self: Observable[T], other: Observable[T]): Observable[bool] =
 # which a lot of std library features depend on.
 proc equals*[T](self: Observable[T], other: Observable[T]): Observable[bool] =
   self.combineLatest(other, (a, b: T) => a == b)
+
+
+proc `+`*[T](self: Observable[T], other: T): Observable[T] =
+  self.map((x: T) => x + other)
+
+proc `-`*[T](self: Observable[T], other: T): Observable[T] =
+  self.map((x: T) => x - other)
+
+proc `/`*[T](self: Observable[T], other: T): Observable[T] =
+  self.map((x: T) => x / other)
+
+proc `*`*[T](self: Observable[T], other: T): Observable[T] =
+  self.map((x: T) => x * other)
+
+proc `>`*[T](self: Observable[T], other: T): Observable[bool] =
+  self.map((x: T) => x > other)
+
+proc `>=`*[T](self: Observable[T], other: T): Observable[bool] =
+  self.map((x: T) => x >= other)
+
+proc `<`*[T](self: Observable[T], other: T): Observable[bool] =
+  self.map((x: T) => x < other)
+
+proc `<=`*[T](self: Observable[T], other: T): Observable[bool] =
+  self.map((x: T) => x <= other)
+
+proc equals*[T](self: Observable[T], other: T): Observable[bool] =
+  self.map((x: T) => x + other)
