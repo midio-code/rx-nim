@@ -298,7 +298,7 @@ proc combineLatest*[A,B,C,D,E,R](
 
 
 proc merge*[A](a: Observable[A], b: Observable[A]): Observable[A] =
-  ## Combines two observables, pushing both their values through a mapper function that maps to a new Observable type. The new observable triggers when **either** A or B changes.
+  ## Combines two observables. The new observable triggers when **either** A or B changes.
   Observable[A](
     onSubscribe: proc(subscriber: Subscriber[A]): Subscription =
       let sub1 = a.subscribe(
@@ -317,7 +317,7 @@ proc merge*[A](a: Observable[A], b: Observable[A]): Observable[A] =
   )
 
 proc merge*[A](observables: Observable[Observable[A]]): Observable[A] =
-  ## Subscribes to each observable as they arrive, emitting their values as they are emitted
+  ## Subscribes to each observable as they arrive, emitting their values as they are emitted.
   Observable[A](
     onSubscribe: proc(subscriber: Subscriber[A]): Subscription =
       var subscriptions: seq[Subscription] = @[]
