@@ -60,6 +60,12 @@ proc unwrap*[T](self: ObservableCollection[Option[T]]): ObservableCollection[T] 
       x.get()
   )
 
+proc isSome*[T](self: Observable[Option[T]]): Observable[bool] =
+  self.map((x: Option[T]) => x.isSome)
+
+proc isNone*[T](self: Observable[Option[T]]): Observable[bool] =
+  self.map((x: Option[T]) => x.isNone)
+
 proc len*[T](self: Observable[seq[T]]): Observable[int] =
   self.map((x: seq[T]) => x.len)
 template len*[T](self: Subject[seq[T]]): Observable[int] =
