@@ -114,11 +114,11 @@ proc then*[T](first: Observable[T], second: Observable[T]): Observable[T] =
       )
     )
 
-proc behaviorSubject*[T](source: Observable[T]): Subject[T] =
+proc behaviorSubject*[T](source: Observable[T], defaultVal: T = default(T)): Subject[T] =
   ## Creates a ``behaviorSubject`` from another ``observable``. This is useful
   ## when one has an observable which one would like to use as a value, exposing the latest
   ## value through the subjects ``.value`` field.
-  let ret = behaviorSubject[T]()
+  let ret = behaviorSubject[T](defaultVal)
   # NOTE: We do not care about this subscription,
   # as it is valid as long as this subject exists.
   # TODO: We might need to handle the case when the object is disposed though.
