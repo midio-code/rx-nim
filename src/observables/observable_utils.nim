@@ -391,6 +391,9 @@ proc `or`*(self: Observable[bool], other: Observable[bool]): Observable[bool] =
 proc `and`*(self: Observable[bool], other: Observable[bool]): Observable[bool] =
   self.combineLatest(other, (a: bool, b: bool) => a and b)
 
+proc `not`*(self: Observable[bool]): Observable[bool] =
+  self.map((x: bool) => not x)
+
 proc once*[T](self: Observable[T], handler: (T) -> void): void =
   var subscription: Subscription
   var shouldUnsubscribe = false

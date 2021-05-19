@@ -215,6 +215,13 @@ toObservable[T](self: CollectionSubject[T]): Observable[seq[T]]
 combineLatest[A,B,R](a: ObservableCollection[A], b: ObservableCollection[B], mapper: (A,B) -> R): ObservableCollection[R]
 ```
 
+
+### First
+
+```nim
+first[T](self: ObservableCollection[T]): Observable[Option[T]]
+```
+
 ### FirstWhere
 
 ```nim

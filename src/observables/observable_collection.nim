@@ -529,6 +529,35 @@ proc combineLatest*[A,B,R](a: ObservableCollection[A], b: ObservableCollection[B
       )
   )
 
+proc first*[T](self: ObservableCollection[T]): Observable[Option[T]] =
+  var items: seq[T] = @[]
+  Observable[Option[T]](
+    onSubscribe:
+      proc(subscriber: Subscriber[Option[T]]): Subscription =
+        self.subscribe(
+          proc(change: Change[T]): void =
+            proc emit() =
+              if items.len > 0:
+                subscriber.onNext(some(items[0]))
+              else:
+                subscriber.onNext(none[T]())
+
+            case change.kind:
+              of ChangeKind.Added:
+                items.insert(change.newItem, change.addedAtIndex)
+                emit()
+              of ChangeKind.Removed:
+                items.delete(change.removedFromIndex)
+                emit()
+              of ChangeKind.Changed:
+                items[change.changedAtIndex] = change.newVal
+                emit()
+              of ChangeKind.InitialItems:
+                for item in change.items:
+                  items.add(item)
+                emit()
+        )
+  )
 
 # TODO: Write tests
 proc firstWhere*[T](self: ObservableCollection[T], predicate: T -> bool, label: string = ""): Observable[Option[T]] =
