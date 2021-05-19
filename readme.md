@@ -140,6 +140,21 @@ Calls handler once the next time the observable fires
 once[T](self: Observable[T], handler: (T) -> void): void =
 ```
 
+#### Debounce
+
+Pushes values only after values has stopped arriving for `waitMs` milliseconds.
+
+```nim
+debounce[T](self: Observable[T], waitMs: int, setTimeout: (() -> void, int) -> (() -> void)): Observable[T]
+```
+
+When targeting JavaScript, there is an implementation that uses setTimeout from the `dom` module:
+
+```nim
+debounce[T](self: Observable[T], waitMs: int): Observable[T]
+```
+
+
 # ObservableCollection
 
 Observable collections observables that contains a list of items, and pushes information about when items are added, removed, or changed.

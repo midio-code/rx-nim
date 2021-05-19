@@ -464,3 +464,32 @@ proc `<=`*[T](self: Observable[T], other: T): Observable[bool] =
 
 proc equals*[T](self: Observable[T], other: T): Observable[bool] =
   self.map((x: T) => x + other)
+
+
+proc debounce*[T](self: Observable[T], waitMs: int, setTimeout: (() -> void, int) -> (() -> void)): Observable[T] =
+  createObservable(
+    proc(subscriber: Subscriber[T]): Subscription =
+      var timeout: () -> void
+      let subscription = self.subscribe(
+        proc(newVal: T): void =
+          if not isNil(timeout):
+            timeout()
+          timeout = setTimeout(
+            proc() =
+              subscriber.onNext(newVal),
+            waitMs
+          )
+      )
+  )
+
+when defined(js):
+  from dom import setTimeout, clearTimeout
+  proc debounce*[T](self: Observable[T], waitMs: int): Observable[T] =
+    debounce(
+      self,
+      waitMs,
+      proc(handler: () -> void, waitMs: int): (() -> void) =
+        let timeout = setTimeout(handler, waitMs)
+        return proc() =
+          timeout.clearTimeout
+    )
