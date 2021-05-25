@@ -490,7 +490,6 @@ proc throttle*[T](self: Observable[T], waitMs: int, setTimeout: (() -> void, int
       let subscription = self.subscribe(
         proc(newVal: T): void =
           fireLatestValue = proc() =
-            echo "Firing actual val: ", newVal
             subscriber.onNext(newVal)
 
           proc fire() =
