@@ -482,10 +482,48 @@ proc debounce*[T](self: Observable[T], waitMs: int, setTimeout: (() -> void, int
       )
   )
 
+proc throttle*[T](self: Observable[T], waitMs: int, setTimeout: (() -> void, int) -> (() -> void)): Observable[T] =
+  createObservable(
+    proc(subscriber: Subscriber[T]): Subscription =
+      var canFire = true
+      var fireLatestValue: () -> void
+      let subscription = self.subscribe(
+        proc(newVal: T): void =
+          fireLatestValue = proc() =
+            echo "Firing actual val: ", newVal
+            subscriber.onNext(newVal)
+
+          proc fire() =
+            if not isNil(fireLatestValue):
+              fireLatestValue()
+              fireLatestValue = nil
+              canFire = false
+              discard setTimeout(
+                fire,
+                waitMs
+              )
+            else:
+              canFire = true
+
+          if canFire:
+            fire()
+      )
+  )
+
 when defined(js):
   from dom import setTimeout, clearTimeout
   proc debounce*[T](self: Observable[T], waitMs: int): Observable[T] =
     debounce(
+      self,
+      waitMs,
+      proc(handler: () -> void, waitMs: int): (() -> void) =
+        let timeout = setTimeout(handler, waitMs)
+        return proc() =
+          timeout.clearTimeout
+    )
+
+  proc throttle*[T](self: Observable[T], waitMs: int): Observable[T] =
+    throttle(
       self,
       waitMs,
       proc(handler: () -> void, waitMs: int): (() -> void) =

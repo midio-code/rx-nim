@@ -154,6 +154,19 @@ When targeting JavaScript, there is an implementation that uses setTimeout from 
 debounce[T](self: Observable[T], waitMs: int): Observable[T]
 ```
 
+#### Throttle
+
+```nim
+throttle[T](self: Observable[T], waitMs: int, setTimeout: (() -> void, int) -> (() -> void)): Observable[T]
+```
+
+When targeting JavaScript, there is an implementation that uses setTimeout from the `dom` module:
+
+```nim
+throttle[T](self: Observable[T], waitMs: int): Observable[T]
+```
+
+Pushes values only one every `waitMs` milliseconds.
 
 # ObservableCollection
 
