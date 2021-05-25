@@ -23,6 +23,20 @@ proc observableCollection*[T](values: seq[T] = @[]): CollectionSubject[T] =
   )
   subject
 
+proc constantCollection*[T](values: seq[T] = @[]): CollectionSubject[T] =
+  CollectionSubject[T](
+    source: ObservableCollection[T](
+      onSubscribe: proc(subscriber: CollectionSubscriber[T]): Subscription =
+        subscriber.onChanged(
+          Change[T](
+            kind: ChangeKind.InitialItems,
+            items: values
+          )
+        )
+        Subscription(dispose: proc(): void = discard)
+    )
+  )
+
 proc add*[T](self: CollectionSubject[T], item: T): void =
   let index = self.values.len
   self.values.add(item)

@@ -77,6 +77,20 @@ proc subject*[T](): Subject[T] =
 template state*[T](value: T): untyped =
   behaviorSubject(value)
 
+proc constantSubject*[T](value: T): Subject[T] =
+  ## Creates a ``behaviorSubject`` with the initial value of ``value``. Behavior subjects notifies
+  ## as soon as a subscription is created.
+  Subject[T](
+    didComplete: false,
+    source: Observable[T](
+    onSubscribe: proc(subscriber: Subscriber[T]): Subscription =
+      subscriber.onNext(value)
+      Subscription(
+        dispose: proc() = discard
+      )
+    )
+  )
+
 proc createObservable*[T](onSubscribe: (Subscriber[T]) -> Subscription): Observable[T] =
   Observable[T](onSubscribe: onSubscribe)
 
