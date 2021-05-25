@@ -35,7 +35,7 @@ type
   ChangeKind* {.pure.} = enum
     Added, Removed, Changed, InitialItems
 
-  Change*[T] = object
+  Change*[T] = ref object
     case kind*: ChangeKind
     of ChangeKind.Added:
       newItem*: T
