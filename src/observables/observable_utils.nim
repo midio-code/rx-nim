@@ -71,6 +71,10 @@ proc len*[T](self: Observable[seq[T]]): Observable[int] =
 template len*[T](self: Subject[seq[T]]): Observable[int] =
   self.source.len
 
+proc len*(self: Observable[string]): Observable[int] =
+  self.map((x: string) => x.len)
+template len*(self: Subject[string]): Observable[int] =
+  self.source.len
 
 proc switch*[A](observables: Observable[ObservableCollection[A]]): ObservableCollection[A] =
   ## Subscribes to each observable as they arrive after first unsubscribing from the second,
