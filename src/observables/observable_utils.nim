@@ -467,7 +467,7 @@ proc `<=`*[T](self: Observable[T], other: T): Observable[bool] =
   self.map((x: T) => x <= other)
 
 proc equals*[T](self: Observable[T], other: T): Observable[bool] =
-  self.map((x: T) => x + other)
+  self.map((x: T) => x == other)
 
 
 proc debounce*[T](self: Observable[T], waitMs: int, setTimeout: (() -> void, int) -> (() -> void)): Observable[T] =
