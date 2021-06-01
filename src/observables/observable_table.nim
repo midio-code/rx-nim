@@ -113,6 +113,24 @@ proc get*[TKey, TValue](self: ObservableTable[TKey,TValue], key: Observable[TKey
 template get*[TKey, TValue](self: TableSubject[TKey,TValue], key: Observable[TKey]): Observable[Option[TValue]] =
   self.source.get(key)
 
+proc `[]=`*[TKey, TValue](self: TableSubject[TKey, TValue], key: TKey, value: TValue): void =
+  self.set(key, value)
+
+proc `[]`*[TKey, TValue](self: TableSubject[TKey, TValue], key: TKey): Observable[Option[TValue]] =
+  self.get(key)
+
+proc hasKey*[TKey, TValue](self: TableSubject[TKey, TValue], key: TKey): bool =
+  self.items.hasKey(key)
+
+proc contains*[TKey, TValue](self: TableSubject[TKey, TValue], key: TKey): bool =
+  self.hasKey(key)
+
+proc mgetorput*[TKey, TValue](self: TableSubject[TKey, TValue], key: TKey, value: TValue): TValue =
+  if key notin self:
+    self[key] = value
+  self.items[key]
+
+
 proc keys*[TKey, TValue](self: ObservableTable[TKey, TValue]): ObservableCollection[TKey] =
   var keys: seq[TKey] = @[]
   ObservableCollection[TKey](
