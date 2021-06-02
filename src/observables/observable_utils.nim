@@ -12,6 +12,9 @@ proc choose*[T](self: Observable[bool], onTrue: T, onFalse: T): Observable[T] =
         onFalse
   )
 
+template choose*[T](self: Subject[bool], onTrue: T, onFalse: T): Observable[T] =
+  self.source.choose(onTrue, onFalse)
+
 proc whenTrue*[T](self: Observable[bool], onTrue: T): Observable[Option[T]] =
   self.map(
     proc(x: bool): Option[T] =
