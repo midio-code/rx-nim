@@ -86,7 +86,7 @@ proc constantSubject*[T](value: T): Subject[T] =
     onSubscribe: proc(subscriber: Subscriber[T]): Subscription =
       subscriber.onNext(value)
       Subscription(
-        proc() = discard
+        dispose: proc() = discard
       )
     )
   )
