@@ -366,19 +366,11 @@ proc log*[A](self: ObservableCollection[A], prefix: string = ""): ObservableColl
       )
   )
 
-proc unique*[T](self: Observable[T]): Observable[T] =
-  var prev = default(T)
-  self.filter(
-    proc(val: T): bool =
-      if val != prev:
-        prev = val
-        true
-      else:
-        false
-  )
+template unique*[T](self: Observable[T]): Observable[T] =
+  self.distinctUntilChanged()
 
-proc unique*[T](self: Subject[T]): Observable[T] =
-  self.source.unique()
+template unique*[T](self: Subject[T]): Observable[T] =
+  self.source.distinctUntilChanged()
 
 template castTo*[T](self: Observable[T], caster: untyped): untyped =
   self.map(

@@ -86,7 +86,7 @@ proc constantSubject*[T](value: T): Subject[T] =
     onSubscribe: proc(subscriber: Subscriber[T]): Subscription =
       subscriber.onNext(value)
       Subscription(
-        dispose: proc() = discard
+        proc() = discard
       )
     )
   )
@@ -374,16 +374,23 @@ proc switch*[A](observables: Observable[Observable[A]]): Observable[A] =
   )
 
 proc distinctUntilChanged*[T](self: Observable[T]): Observable[T] =
-  var lastValue: Option[T] = none[T]()
-  self.filter(
-    proc(val: T): bool =
-      if lastValue.isNone() or val != lastValue.get():
-        lastValue = some(val)
-        true
-      else:
-        false
+  Observable[T](
+    onSubscribe: proc(subscriber: Subscriber[T]): Subscription =
+      var lastVal: Option[T]
+      let sub = self.subscribe(
+        proc(newVal: T) =
+          if lastVal.isNone or lastVal.get != newVal:
+            lastVal = some(newVal)
+            subscriber.onNext(newVal)
+      )
+      Subscription(
+        dispose: proc() =
+          sub.dispose()
+      )
   )
 
+template distinctUntilChanged*[T](self: Subject[T]): Observable[T] =
+  self.source.distinctUntilChanged()
 
 proc take*[T](self: Observable[T], num: int): Observable[T] =
   var counter = 0

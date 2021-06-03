@@ -45,6 +45,43 @@ suite "observable tests":
     discard subj.subscribe((val: int) => (test = 555))
     check(test == 555)
 
+  test "DistinctUntilChanged (unique)":
+    let subj = behaviorSubject(2)
+    let obs = subj.distinctUntilChanged()
+
+    var val1 = -1
+    var count1 = 0
+    discard obs.subscribe(
+      proc(newVal: int) =
+        val1 = newVal
+        count1 += 1
+    )
+
+    var val2 = -1
+    var count2 = 0
+    discard obs.subscribe(
+      proc(newVal: int) =
+        val2 = newVal
+        count2 += 1
+    )
+
+    check(val1 == 2)
+    check(count1 == 1)
+    check(val2 == 2)
+    check(count2 == 1)
+
+    subj <- 2
+    check(val1 == 2)
+    check(count1 == 1)
+    check(val2 == 2)
+    check(count2 == 1)
+
+    subj <- 3
+    check(val1 == 3)
+    check(count1 == 2)
+    check(val2 == 3)
+    check(count2 == 2)
+
   test "Map operator":
     let subj = behaviorSubject[int](2)
     let mapped = subj.source.map(
