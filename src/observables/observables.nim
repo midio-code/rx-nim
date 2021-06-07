@@ -4,6 +4,22 @@ import types
 import utils
 import strformat
 
+
+proc createObservable*[T](onSubscribe: (Subscriber[T]) -> Subscription): Observable[T] =
+  Observable[T](onSubscribe: onSubscribe)
+
+proc createObservable*[T](values: seq[T]): Observable[T] =
+  createObservable(
+    proc(subscriber: Subscriber[T]): Subscription =
+      for value in values:
+        subscriber.onNext(value)
+      if subscriber.onCompleted.isSome():
+        subscriber.onCompleted.get()()
+      Subscription(
+        dispose: proc(): void = discard
+      )
+  )
+
 proc toSubscriber[T](onNext: (T) -> void): Subscriber[T] =
   Subscriber[T](onNext: onNext, onCompleted: none[() -> void](), onError: none[(Error) -> void]())
 
@@ -49,8 +65,8 @@ proc behaviorSubject*[T](value: T = default(T)): Subject[T] =
     value: value,
     didComplete: false
   )
-  ret.source = Observable[T](
-    onSubscribe: proc(subscriber: Subscriber[T]): Subscription =
+  ret.source = createObservable[T](
+    proc(subscriber: Subscriber[T]): Subscription =
       ret.subscribers.add(subscriber)
       subscriber.onNext(ret.value)
       Subscription(
@@ -64,8 +80,8 @@ proc subject*[T](): Subject[T] =
   ## Creates a normal ``subject``, which has no value, and only notifies their subscriber
   ## the next time a new value is pushed to it.
   let ret = Subject[T]()
-  ret.source = Observable[T](
-    onSubscribe: proc(subscriber: Subscriber[T]): Subscription =
+  ret.source = createObservable[T](
+    proc(subscriber: Subscriber[T]): Subscription =
       ret.subscribers.add(subscriber)
       Subscription(
         dispose: proc(): void =
@@ -82,8 +98,8 @@ proc constantSubject*[T](value: T): Subject[T] =
   ## as soon as a subscription is created.
   Subject[T](
     didComplete: false,
-    source: Observable[T](
-    onSubscribe: proc(subscriber: Subscriber[T]): Subscription =
+    source: createObservable[T](
+    proc(subscriber: Subscriber[T]): Subscription =
       subscriber.onNext(value)
       Subscription(
         dispose: proc() = discard
@@ -91,21 +107,6 @@ proc constantSubject*[T](value: T): Subject[T] =
     )
   )
 
-proc createObservable*[T](onSubscribe: (Subscriber[T]) -> Subscription): Observable[T] =
-  Observable[T](onSubscribe: onSubscribe)
-
-
-proc createObservable*[T](values: seq[T]): Observable[T] =
-  createObservable(
-    proc(subscriber: Subscriber[T]): Subscription =
-      for value in values:
-        subscriber.onNext(value)
-      if subscriber.onCompleted.isSome():
-        subscriber.onCompleted.get()()
-      Subscription(
-        dispose: proc(): void = discard
-      )
-  )
 
 proc then*[T](first: Observable[T], second: Observable[T]): Observable[T] =
   var currentSub: Subscription
@@ -165,8 +166,8 @@ proc next*[T](self: Subject[T], transformer: T -> T): void =
 # Operators
 proc map*[T,R](self: Observable[T], mapper: T -> R): Observable[R] =
   ## Returns a new ``Observable`` which maps values from the source ``Observable`` to a new type and value.
-  result = Observable[R](
-    onSubscribe: proc(subscriber: Subscriber[R]): Subscription =
+  result = createObservable[R](
+    proc(subscriber: Subscriber[R]): Subscription =
       self.subscribe(
         proc(newVal: T): void =
           subscriber.onNext(mapper(newVal))
@@ -185,8 +186,8 @@ template extract*[T](self: Subject[T], prop: untyped): untyped =
   self.source.extract(prop)
 
 proc filter*[T](self: Observable[T], predicate: (T) -> bool): Observable[T] =
-  Observable[T](
-    onSubscribe: proc(subscriber: Subscriber[T]): Subscription =
+  createObservable[T](
+    proc(subscriber: Subscriber[T]): Subscription =
       self.subscribe(
         proc(newVal: T): void =
           if predicate(newVal):
@@ -198,8 +199,8 @@ proc filter*[T](self: Observable[T], predicate: (T) -> bool): Observable[T] =
 
 proc combineLatest*[A,B,R](a: Observable[A], b: Observable[B], mapper: (A,B) -> R): Observable[R] =
   ## Combines two observables, pushing both their values through a mapper function that maps to a new Observable type. The new observable triggers when **either** A or B changes.
-  result = Observable[R](
-    onSubscribe: proc(subscriber: Subscriber[R]): Subscription =
+  result = createObservable[R](
+    proc(subscriber: Subscriber[R]): Subscription =
       assert(not isNil(a))
       assert(not isNil(b))
       var lastA: Option[A]
@@ -225,8 +226,8 @@ proc combineLatest*[A,B,R](a: Observable[A], b: Observable[B], mapper: (A,B) -> 
 
 proc combineLatest*[A,B,C,R](a: Observable[A], b: Observable[B], c: Observable[C], mapper: (A,B,C) -> R): Observable[R] =
   ## Combines three observables, pushing their values through a mapper function that maps to a new Observable type. The new observable triggers when **either** A, B or C changes.
-  result = Observable[R](
-    onSubscribe: proc(subscriber: Subscriber[R]): Subscription =
+  result = createObservable[R](
+    proc(subscriber: Subscriber[R]): Subscription =
       assert(not isNil(a))
       assert(not isNil(b))
       assert(not isNil(c))
@@ -313,8 +314,8 @@ proc combineLatest*[A,B,C,D,E,R](
 
 proc merge*[A](a: Observable[A], b: Observable[A]): Observable[A] =
   ## Combines two observables. The new observable triggers when **either** A or B changes.
-  Observable[A](
-    onSubscribe: proc(subscriber: Subscriber[A]): Subscription =
+  createObservable[A](
+    proc(subscriber: Subscriber[A]): Subscription =
       let sub1 = a.subscribe(
         proc(newA: A): void =
           subscriber.onNext(newA)
@@ -332,8 +333,8 @@ proc merge*[A](a: Observable[A], b: Observable[A]): Observable[A] =
 
 proc merge*[A](observables: Observable[Observable[A]]): Observable[A] =
   ## Subscribes to each observable as they arrive, emitting their values as they are emitted.
-  Observable[A](
-    onSubscribe: proc(subscriber: Subscriber[A]): Subscription =
+  createObservable[A](
+    proc(subscriber: Subscriber[A]): Subscription =
       var subscriptions: seq[Subscription] = @[]
       let outerSub = observables.subscribe(
         proc(innerObs: Observable[A]): void =
@@ -353,8 +354,8 @@ proc merge*[A](observables: Observable[Observable[A]]): Observable[A] =
 proc switch*[A](observables: Observable[Observable[A]]): Observable[A] =
   ## Subscribes to each observable as they arrive after first unsubscribing from the second,
   ## emitting their values as they arrive.
-  Observable[A](
-    onSubscribe: proc(subscriber: Subscriber[A]): Subscription =
+  createObservable[A](
+    proc(subscriber: Subscriber[A]): Subscription =
       var currentSubscription: Subscription
       let outerSub = observables.subscribe(
         proc(innerObs: Observable[A]): void =
@@ -374,8 +375,8 @@ proc switch*[A](observables: Observable[Observable[A]]): Observable[A] =
   )
 
 proc distinctUntilChanged*[T](self: Observable[T]): Observable[T] =
-  Observable[T](
-    onSubscribe: proc(subscriber: Subscriber[T]): Subscription =
+  createObservable[T](
+    proc(subscriber: Subscriber[T]): Subscription =
       var lastVal: Option[T]
       let sub = self.subscribe(
         proc(newVal: T) =
@@ -394,8 +395,8 @@ template distinctUntilChanged*[T](self: Subject[T]): Observable[T] =
 
 proc take*[T](self: Observable[T], num: int): Observable[T] =
   var counter = 0
-  Observable[T](
-    onSubscribe:
+  createObservable[T](
+
       proc(subscriber: Subscriber[T]): Subscription =
         var alreadyCompleted = false
         var subscription: Subscription
