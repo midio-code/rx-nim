@@ -63,6 +63,17 @@ proc unwrap*[T](self: ObservableCollection[Option[T]]): ObservableCollection[T] 
       x.get()
   )
 
+proc map*[T,R](self: Observable[Option[T]], mapper: T -> R): Observable[Option[R]] =
+  self.map(
+    proc(val: Option[T]): Option[R] =
+      if val.isSome:
+        some(mapper(val.get))
+      else:
+        none[R]()
+  )
+template map*[T,R](self: Subject[Option[T]], mapper: T -> R): Observable[Option[R]] =
+  subject.source.map(mapper)
+
 proc isSome*[T](self: Observable[Option[T]]): Observable[bool] =
   self.map((x: Option[T]) => x.isSome)
 
