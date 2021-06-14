@@ -299,7 +299,7 @@ proc len*[T](self: ObservableCollection[T]): Observable[int] =
       )
   )
 
-proc map*[T,R](self: ObservableCollection[T], mapper: T -> R): ObservableCollection[R] =
+proc map*[T,R](self: ObservableCollection[T], mapper: (T, int) -> R): ObservableCollection[R] =
   ## Maps items using the supplied mapper function. T must have hash implemented in order for this operator
   ## to work properly.
   var mapped = initTable[T,R]()
@@ -309,7 +309,7 @@ proc map*[T,R](self: ObservableCollection[T], mapper: T -> R): ObservableCollect
         proc(change: Change[T]): void =
           case change.kind:
             of ChangeKind.Added:
-              let res = mapper(change.newItem)
+              let res = mapper(change.newItem, change.addedAtIndex)
               mapped[change.newItem] = res
               subscriber.onChanged(Change[R](
                 kind: ChangeKind.Added,
@@ -324,7 +324,7 @@ proc map*[T,R](self: ObservableCollection[T], mapper: T -> R): ObservableCollect
                 removedFromIndex: change.removedFromIndex
               ))
             of ChangeKind.Changed:
-              let newMappedVal = mapper(change.newVal)
+              let newMappedVal = mapper(change.newVal, change.changedAtIndex)
               mapped[change.newVal] = newMappedVal
               subscriber.onChanged(Change[R](
                 kind: ChangeKind.Changed,
@@ -334,7 +334,7 @@ proc map*[T,R](self: ObservableCollection[T], mapper: T -> R): ObservableCollect
             of ChangeKind.InitialItems:
               var mappedItems: seq[R] = @[]
               for index, i in change.items.pairs():
-                let mappedItem = mapper(i)
+                let mappedItem = mapper(i, index)
                 mapped[i] = mappedItem
                 mappedItems.add(mappedItem)
               subscriber.onChanged(Change[R](
@@ -347,7 +347,16 @@ proc map*[T,R](self: ObservableCollection[T], mapper: T -> R): ObservableCollect
       )
   )
 
-template map*[T,R](self: CollectionSubject[T], mapper: (T) -> R): ObservableCollection[R] =
+proc map*[T,R](self: CollectionSubject[T], mapper: (T, int) -> R): ObservableCollection[R] =
+  self.source.mapIndex(mapper)
+
+
+proc map*[T,R](self: ObservableCollection[T], mapper: (T) -> R): ObservableCollection[R] =
+  self.map(
+    (item: T, index: int) => mapper(item)
+  )
+
+proc map*[T,R](self: CollectionSubject[T], mapper: (T) -> R): ObservableCollection[R] =
   self.source.map(mapper)
 
 proc filter*[T](self: ObservableCollection[T], predicate: T -> bool): ObservableCollection[T] =

@@ -224,6 +224,10 @@ asObservableCollection[T](values: seq[Observable[T]]): CollectionSubject[T]
 ```nim
 map[T,R](self: ObservableCollection[T], mapper: T -> R): ObservableCollection[R]
 ```
+and with index
+```nim
+map[T,R](self: ObservableCollection[T], mapper: (T, int) -> R): ObservableCollection[R]
+```
 
 ### Filter
 
