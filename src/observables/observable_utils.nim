@@ -72,7 +72,7 @@ proc map*[T,R](self: Observable[Option[T]], mapper: T -> R): Observable[Option[R
         none[R]()
   )
 template map*[T,R](self: Subject[Option[T]], mapper: T -> R): Observable[Option[R]] =
-  subject.source.map(mapper)
+  self.source.map(mapper)
 
 proc isSome*[T](self: Observable[Option[T]]): Observable[bool] =
   self.map((x: Option[T]) => x.isSome)
