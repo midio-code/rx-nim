@@ -540,3 +540,19 @@ when defined(js):
         return proc() =
           timeout.clearTimeout
     )
+else:
+  proc debounce*[T](self: Observable[T], waitMs: int): Observable[T] =
+    debounce(
+      self,
+      waitMs,
+      proc(handler: () -> void, waitMs: int): (() -> void) =
+        handler()
+    )
+
+  proc throttle*[T](self: Observable[T], waitMs: int): Observable[T] =
+    throttle(
+      self,
+      waitMs,
+      proc(handler: () -> void, waitMs: int): (() -> void) =
+        handler()
+    )
