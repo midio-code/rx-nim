@@ -93,14 +93,38 @@ template len*(self: Subject[string]): Observable[int] =
 proc switch*[A](observables: Observable[ObservableCollection[A]]): ObservableCollection[A] =
   ## Subscribes to each observable as they arrive after first unsubscribing from the second,
   ## emitting their values as they arrive.
+
+  var values: seq[A] = @[]
   ObservableCollection[A](
     onSubscribe: proc(subscriber: CollectionSubscriber[A]): Subscription =
       var currentSubscription: Subscription
       let outerSub = observables.subscribe(
         proc(innerObs: ObservableCollection[A]): void =
           if not isNil(currentSubscription):
+            for value in values:
+              subscriber.onChanged(
+                Change[A](
+                  kind: ChangeKind.Removed,
+                  removedItem: value,
+                  removedFromIndex: 0
+                )
+              )
+            values = @[]
             currentSubscription.dispose()
-          currentSubscription = innerObs.onSubscribe(subscriber)
+          currentSubscription = innerObs.subscribe(
+            proc(change: Change[A]): void =
+              case change.kind:
+                of ChangeKind.Added:
+                  values.insert(change.newItem, change.addedAtIndex)
+                of ChangeKind.Removed:
+                  values.delete(change.removedFromIndex)
+                of ChangeKind.Changed:
+                  values[change.changedAtIndex] = change.newVal
+                of ChangeKind.InitialItems:
+                  values = change.items
+
+              subscriber.onChanged(change)
+          )
       )
       Subscription(
         dispose: proc(): void =
