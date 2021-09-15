@@ -197,6 +197,48 @@ proc values*[TKey, TValue](self: ObservableTable[TKey, TValue]): ObservableColle
       )
   )
 
+proc pairs*[TKey, TValue](self: ObservableTable[TKey, TValue]): ObservableCollection[(TKey, TValue)] =
+  var keys: seq[TKey] = @[]
+  var values = initOrderedTable[TKey,TValue]()
+  ObservableCollection[TValue](
+    onSubscribe: proc(subscriber: CollectionSubscriber[TValue]): Subscription =
+      self.subscribe(
+        proc(key: TKey, val: TValue): void =
+          if key notin keys:
+            let index = keys.len
+            keys.add(key)
+            values[key] = val
+            subscriber.onChanged(Change[TValue](
+              kind: ChangeKind.Added,
+              newItem: (key, val),
+              addedAtIndex: index
+            ))
+          else:
+            let index = keys.find(key)
+            let oldVal = values[key]
+            values[key] = val
+            subscriber.onChanged(
+              Change[TValue](
+                kind: ChangeKind.Changed,
+                changedAtIndex: index,
+                oldVal: (key, oldVal),
+                newVal: (key, val),
+              )
+            ),
+        proc(key: TKey, val: TValue): void =
+          let keyIndex = keys.find(key)
+          values.del(key)
+          keys.delete(keyIndex)
+          subscriber.onChanged(
+            Change[TValue](
+              kind: ChangeKind.Removed,
+              removedItem: (key, val),
+              removedFromIndex: keyIndex
+            )
+          )
+      )
+  )
+
 template values*[TKey, TValue](self: TableSubject[TKey, TValue]): ObservableCollection[TValue] =
   self.source.values()
 
